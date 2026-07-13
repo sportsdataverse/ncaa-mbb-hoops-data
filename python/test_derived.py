@@ -53,3 +53,27 @@ def test_rosters_distinct_team_player_per_season():
     assert df.schema["player"] == pl.Utf8
     assert (df.get_column("season") == 2026).all()
     assert df.select("team", "player").is_duplicated().sum() == 0
+
+
+def test_schedule_final_score_is_max_not_opening_row():
+    """Locks in .max() of pbp home/away score -- not pbp[0] (which is 0-0 opening tip)."""
+    finals = _load_finals()
+    df = schedule(finals, 2026).filter(pl.col("contest_id") == "1613299")
+
+    assert df.height == 1
+    # Verified against the fixture's pbp rows: game final, Maryland 78 - Illinois 67.
+    assert df.get_column("home_score").item() == 78
+    assert df.get_column("away_score").item() == 67
+
+
+def test_schedule_and_rosters_skip_empty_family_without_raising():
+    """A game with empty pbp/player_box must not abort the season build."""
+    real = _load_finals()[0]
+    finals = [real, {"contest_id": "ZZZ", "pbp": [], "player_box": []}]
+
+    sched = schedule(finals, 2026)
+    assert sched.height == 1
+    assert "ZZZ" not in sched.get_column("contest_id").to_list()
+
+    rost = rosters(finals, 2026)
+    assert rost.height == rosters([real], 2026).height
