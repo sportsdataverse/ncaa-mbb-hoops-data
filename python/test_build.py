@@ -5,6 +5,7 @@ from pathlib import Path
 
 import polars as pl
 
+from ncaa_mbb_data_build import reshapers
 from ncaa_mbb_data_build.build import build_season
 
 RAW_ROOT = Path(__file__).parent / "tests" / "fixtures" / "raw_root"
@@ -63,3 +64,34 @@ def test_build_season_no_contest_ids_returns_empty_and_writes_nothing(tmp_path: 
 
     assert out.height == 0
     assert not (tmp_path / "mbb" / "pbp").exists()
+
+
+def test_build_season_contest_id_is_sorted(tmp_path: Path):
+    """Locks in the DIRECT-path contest_id sort in build._build_direct."""
+    out = build_season("pbp", 2026, base=tmp_path, raw_root=RAW_ROOT)
+
+    assert out.get_column("contest_id").is_sorted()
+
+
+def test_build_season_skips_one_bad_game_not_whole_season(tmp_path: Path, monkeypatch):
+    """A game whose extract_family raises must be skipped, not abort the season."""
+    bad_cid = next(p.stem for p in JSON_DIR.glob("*.json"))
+    real_extract = reshapers.extract_family
+
+    def _flaky_extract(final, family, **kwargs):
+        if kwargs.get("contest_id") == bad_cid:
+            raise ValueError("simulated extract failure")
+        return real_extract(final, family, **kwargs)
+
+    monkeypatch.setattr(reshapers, "extract_family", _flaky_extract)
+
+    out = build_season("pbp", 2026, base=tmp_path, raw_root=RAW_ROOT)
+
+    good_games_height = _fixture_family_height("pbp") - len(
+        json.loads((JSON_DIR / f"{bad_cid}.json").read_text(encoding="utf-8")).get(
+            "pbp"
+        )
+        or []
+    )
+    assert out.height == good_games_height
+    assert bad_cid not in out.get_column("contest_id").to_list()

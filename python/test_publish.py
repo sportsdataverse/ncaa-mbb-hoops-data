@@ -107,3 +107,63 @@ def test_publish_only_parquet_staged_uploads_one_file(tmp_path: Path):
     uploads = [c for c in calls if c[:2] == ["release", "upload"]]
     assert len(uploads) == 1
     assert result["uploaded"] == 1
+
+
+def _stage_parquet_only(tmp_path: Path) -> None:
+    pq_dir = tmp_path / "mbb" / "pbp" / "parquet"
+    pq_dir.mkdir(parents=True)
+    (pq_dir / "pbp_2026.parquet").write_bytes(b"parquet-bytes")
+
+
+def test_publish_make_rds_stages_and_uploads_rds(tmp_path: Path, monkeypatch):
+    """Only a parquet is pre-staged; a stubbed rds.to_rds should get called and
+    its output picked up as a second uploaded asset."""
+    _stage_parquet_only(tmp_path)
+
+    def _fake_to_rds(parquet_path, rds_path, **kwargs):
+        rds_path = Path(rds_path)
+        rds_path.parent.mkdir(parents=True, exist_ok=True)
+        rds_path.write_bytes(b"fake-rds-bytes")
+        return rds_path
+
+    monkeypatch.setattr("ncaa_mbb_data_build.rds.to_rds", _fake_to_rds)
+    calls: list[list[str]] = []
+
+    result = publish_dataset(
+        _SPEC,
+        2026,
+        base=tmp_path,
+        runner=lambda args: calls.append(args),
+        exists_check=lambda t, r: True,
+        make_rds=True,
+    )
+
+    rds_path = tmp_path / "mbb" / "_release_build" / "pbp" / "pbp_2026.rds"
+    assert rds_path.exists()
+    uploads = [c for c in calls if c[:2] == ["release", "upload"]]
+    assert len(uploads) == 2
+    assert result["uploaded"] == 2
+
+
+def test_publish_make_rds_failure_still_uploads_parquet(tmp_path: Path, monkeypatch):
+    """rds.to_rds raising must not block the parquet(+csv) upload -- swallowed, not fatal."""
+    _stage_parquet_only(tmp_path)
+
+    def _raising_to_rds(parquet_path, rds_path, **kwargs):
+        raise RuntimeError("Rscript not found")
+
+    monkeypatch.setattr("ncaa_mbb_data_build.rds.to_rds", _raising_to_rds)
+    calls: list[list[str]] = []
+
+    result = publish_dataset(
+        _SPEC,
+        2026,
+        base=tmp_path,
+        runner=lambda args: calls.append(args),
+        exists_check=lambda t, r: True,
+        make_rds=True,
+    )
+
+    uploads = [c for c in calls if c[:2] == ["release", "upload"]]
+    assert len(uploads) == 1
+    assert result["uploaded"] == 1

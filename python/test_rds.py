@@ -29,11 +29,34 @@ def _has_arrow(rscript: str | None) -> bool:
 
 _has_rscript_with_arrow = _has_arrow(_rscript)
 
-pytestmark = pytest.mark.skipif(
+_needs_r = pytest.mark.skipif(
     not _has_rscript_with_arrow, reason="Rscript with arrow not available"
 )
 
 
+def test_to_rds_no_rscript_found_raises_runtime_error(tmp_path: Path, monkeypatch):
+    """Not gated on real R: ``_find_rscript`` returning None must raise RuntimeError."""
+    monkeypatch.setattr("ncaa_mbb_data_build.rds._find_rscript", lambda: None)
+    parquet = tmp_path / "in.parquet"
+    pl.DataFrame({"a": [1]}).write_parquet(parquet)
+
+    with pytest.raises(RuntimeError, match="Rscript not found"):
+        to_rds(parquet, tmp_path / "out.rds")
+
+
+@_needs_r
+def test_to_rds_honors_explicit_rscript_arg(tmp_path: Path):
+    """Passing rscript= is used instead of _find_rscript()'s resolution."""
+    df = pl.DataFrame({"a": [1, 2]})
+    parquet = tmp_path / "in.parquet"
+    df.write_parquet(parquet)
+
+    out = to_rds(parquet, tmp_path / "out.rds", rscript=_rscript)
+
+    assert out.exists()
+
+
+@_needs_r
 def test_to_rds_round_trips_through_r(tmp_path: Path):
     df = pl.DataFrame(
         {
