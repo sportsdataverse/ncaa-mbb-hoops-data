@@ -1,19 +1,20 @@
-"""Read the wehoop-wnba-raw tree — from a sibling checkout OR over HTTP.
+"""Read the ncaa-mbb-hoops-raw tree -- from a sibling checkout OR over HTTP.
 
 The Python producer prefers the sibling checkout on disk (sdv-build-data
-convention), but the raw repo is ~58GB — far beyond any CI runner — so
-``raw_root`` may instead be the ``raw.githubusercontent.com`` base URL
-(exactly what the R pipeline always read). Game payloads live at
-``{raw_root}/wnba/json/final/{game_id}.json``; the per-season schedule at
-``{raw_root}/wnba/schedules/parquet/wnba_schedule_{season}.parquet``.
+convention); when unavailable, ``raw_root`` may instead be the
+``raw.githubusercontent.com`` base URL (``config.RAW_HTTP_BASE``). Parsed
+game payloads -- the 7-key dict the raw repo's ``ncaa_parse.write_parsed``
+produces (``contest_id``, ``pbp``, ``lineups``, ``player_box``, ``team_box``,
+``shots``, ``possessions``) -- live at ``{raw_root}/mbb/json/{contest_id}.json``;
+the season contest-id index at ``{raw_root}/mbb/schedule_master.parquet``.
 
-HTTP mode details: per-game/per-entity JSON is cached under
-``$WEHOOP_WNBA_CACHE`` (default ``.wnba_raw_cache``, gitignored) so the 11
-dataset builds don't re-fetch the same payloads; the season schedule is
-fetched fresh every call (its ``game_json``/status flags change daily);
-directory listings use the GitHub contents API (PAT-aware via
-``GITHUB_PAT``/``GH_TOKEN``), mirroring the R scripts' ``list_*_ids`` —
-including their 1000-entries-per-directory API cap (no pagination).
+NCAA contest ids are strings, not ESPN ints -- ``contest_id`` stays Utf8
+everywhere, never cast to Int64.
+
+HTTP mode details: per-game JSON is cached under ``$NCAA_MBB_CACHE``
+(default ``.ncaa_mbb_raw_cache``, gitignored) so repeated dataset builds
+don't re-fetch the same payloads; ``schedule_master.parquet`` is small and
+fetched fresh every call.
 """
 
 from __future__ import annotations
@@ -25,17 +26,15 @@ from pathlib import Path
 
 import polars as pl
 
-from ncaa_mbb_data_build.config import RAW_ROOT_ENV
-
-_RAW_REPO_API = "https://api.github.com/repos/sportsdataverse/wehoop-wnba-raw/contents"
+from ncaa_mbb_data_build.config import RAW_HTTP_BASE, RAW_ROOT_ENV
 
 
 def _resolve_root(explicit: str | Path | None) -> Path | str:
-    """Resolve the wehoop-wnba-raw root (arg > env): a local Path or a base URL."""
+    """Resolve the ncaa-mbb-hoops-raw root (arg > env): a local Path or a base URL."""
     val = explicit or os.environ.get(RAW_ROOT_ENV)
     if not val:
         raise RuntimeError(
-            f"set {RAW_ROOT_ENV} to the wehoop-wnba-raw checkout root or its "
+            f"set {RAW_ROOT_ENV} to the ncaa-mbb-hoops-raw checkout root or its "
             f"raw.githubusercontent base URL, or pass raw_root="
         )
     if isinstance(val, str) and val.startswith(("http://", "https://")):
@@ -44,7 +43,7 @@ def _resolve_root(explicit: str | Path | None) -> Path | str:
 
 
 def raw_root(explicit: str | Path | None = None) -> Path | str:
-    """Resolve the wehoop-wnba-raw root (arg > env): a local Path or a base URL."""
+    """Resolve the ncaa-mbb-hoops-raw root (arg > env): a local Path or a base URL."""
     return _resolve_root(explicit)
 
 
@@ -52,112 +51,25 @@ def _http_get_bytes(url: str) -> bytes | None:
     """GET ``url`` -> bytes; ``None`` on any failure (R tryCatch parity)."""
     import requests
 
-    headers: dict[str, str] = {}
-    pat = os.environ.get("GITHUB_PAT") or os.environ.get("GH_TOKEN")
-    if pat and url.startswith("https://api.github.com/"):
-        headers["Authorization"] = f"token {pat}"
     try:
-        resp = requests.get(url, headers=headers, timeout=60)
+        resp = requests.get(url, timeout=60)
     except requests.RequestException:
         return None
     return resp.content if resp.status_code == 200 else None
 
 
 def _cache_root() -> Path:
-    return Path(os.environ.get("WEHOOP_WNBA_CACHE", ".wnba_raw_cache"))
+    return Path(os.environ.get("NCAA_MBB_CACHE", ".ncaa_mbb_raw_cache"))
 
 
-def _read_season_schedule(season: int, root: Path | str) -> pl.DataFrame | None:
-    """The raw season schedule frame, from disk or fetched fresh over HTTP."""
-    rel = f"wnba/schedules/parquet/wnba_schedule_{season}.parquet"
-    if isinstance(root, Path):
-        f = root / rel
-        return pl.read_parquet(f) if f.exists() else None
-    body = _http_get_bytes(f"{root}/{rel}")
-    if body is None:
-        return None
-    return pl.read_parquet(io.BytesIO(body))
+def read_parsed(contest_id: str, *, raw_root: str | Path | None = None) -> dict | None:
+    """Read one game's parsed JSON; ``None`` if absent/malformed (R tryCatch parity).
 
-
-def season_game_ids(season: int, *, raw_root: str | Path | None = None) -> list[int]:
-    """Game ids for ``season`` that have a final.json (R: ``game_json == TRUE``)."""
-    df = _read_season_schedule(season, _resolve_root(raw_root))
-    if df is None:
-        return []
-    df = df.filter(pl.col("game_json") == True)  # noqa: E712
-    return df.get_column("game_id").cast(pl.Int64).to_list()
-
-
-def season_completed_game_ids(season: int, *, raw_root: str | Path | None = None) -> list[str]:
-    """Completed-game ids for ``season`` (R ``list_game_ids`` in scripts 08/09).
-
-    Unlike :func:`season_game_ids` this does NOT require ``game_json`` -- it
-    filters to completed games (``status_type_completed`` truthy, with the
-    ``status_type_name`` regex fallback) and returns ids as strings, matching
-    the R producer's ``as.character(unique(game_id))``.
-    """
-    df = _read_season_schedule(season, _resolve_root(raw_root))
-    if df is None or "game_id" not in df.columns:
-        return []
-    if "status_type_completed" in df.columns:
-        df = df.filter(pl.col("status_type_completed") == True)  # noqa: E712
-    elif "status_type_name" in df.columns:
-        df = df.filter(
-            pl.col("status_type_name")
-            .str.to_uppercase()
-            .str.contains("POSTPONED|CANCEL|SUSPENDED|FORFEIT")
-            .fill_null(False)
-            == False  # noqa: E712
-        )
-    ids = df.get_column("game_id").cast(pl.Int64).cast(pl.Utf8).unique(maintain_order=True)
-    return [i for i in ids.to_list() if i]
-
-
-def season_dir_ids(subdir: str, season: int, *, raw_root: str | Path | None = None) -> list[int]:
-    """Numeric ids of the per-entity JSONs under ``wnba/{subdir}/json/{season}``.
-
-    Mirrors the R scripts' GitHub-contents listing (alphabetical by file NAME,
-    numeric names only). HTTP mode uses the contents API directly.
+    Returns the parser's 7-key contract dict as-is -- never reshaped. HTTP
+    mode caches each payload under ``$NCAA_MBB_CACHE``.
     """
     root = _resolve_root(raw_root)
-    if isinstance(root, Path):
-        d = root / "wnba" / subdir / "json" / str(season)
-        if not d.is_dir():
-            return []
-        names = sorted(f.stem for f in d.glob("*.json"))
-        return [int(n) for n in names if n.isdigit()]
-    body = _http_get_bytes(f"{_RAW_REPO_API}/wnba/{subdir}/json/{season}")
-    if body is None:
-        return []
-    try:
-        listing = json.loads(body)
-    except json.JSONDecodeError:
-        return []
-    if not isinstance(listing, list):
-        return []
-    stems = sorted(
-        str(entry.get("name", "")).removesuffix(".json")
-        for entry in listing
-        if str(entry.get("name", "")).endswith(".json")
-    )
-    return [int(s) for s in stems if s.isdigit()]
-
-
-def read_final(
-    game_id: int | str,
-    *,
-    raw_root: str | Path | None = None,
-    subdir: str = "json/final",
-) -> dict | None:
-    """Read one game's raw JSON; ``None`` if absent/malformed (R tryCatch parity).
-
-    ``subdir`` selects the raw subtree under ``wnba/`` -- ``"json/final"``
-    (default), ``"game_rosters/json"``, ``"officials/json"``, or the
-    season-scoped ``"team_rosters/json/{season}"`` / ``"standings/json"``
-    forms. HTTP mode caches each payload under ``$WEHOOP_WNBA_CACHE``.
-    """
-    root = _resolve_root(raw_root)
-    rel = f"wnba/{subdir}/{game_id}.json"
+    rel = f"mbb/json/{contest_id}.json"
     if isinstance(root, Path):
         f = root / rel
         if not f.exists():
@@ -172,7 +84,7 @@ def read_final(
             return json.loads(cached.read_text(encoding="utf-8"))
         except (json.JSONDecodeError, OSError):
             return None
-    body = _http_get_bytes(f"{root}/{rel}")
+    body = _http_get_bytes(f"{RAW_HTTP_BASE}/json/{contest_id}.json")
     if body is None:
         return None
     try:
@@ -185,3 +97,26 @@ def read_final(
     except OSError:
         pass  # cache is best-effort; the payload is already in hand
     return payload
+
+
+def season_contest_ids(season: int, *, raw_root: str | Path | None = None) -> list[str]:
+    """Sorted, de-duplicated contest ids for ``season`` from ``schedule_master.parquet``.
+
+    ``season`` in the schedule is Utf8 (``str(ending_year)``, e.g. the
+    2025-26 season is stored as ``"2026"``). Returns ``[]`` if the parquet
+    is absent or the season matched nothing.
+    """
+    root = _resolve_root(raw_root)
+    rel = "mbb/schedule_master.parquet"
+    if isinstance(root, Path):
+        f = root / rel
+        if not f.exists():
+            return []
+        df = pl.read_parquet(f)
+    else:
+        body = _http_get_bytes(f"{RAW_HTTP_BASE}/schedule_master.parquet")
+        if body is None:
+            return []
+        df = pl.read_parquet(io.BytesIO(body))
+    df = df.filter(pl.col("season") == str(season))
+    return sorted(df.get_column("contest_id").unique().to_list())
