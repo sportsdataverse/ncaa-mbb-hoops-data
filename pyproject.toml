@@ -15,6 +15,9 @@ dependencies = [
 [project.scripts]
 ncaa-mbb-data-build = "ncaa_mbb_data_build.cli:main"
 
+[dependency-groups]
+dev = ["pytest>=8"]
+
 # sdv-py's NCAA parsers (ncaa_mbb_team_ids, etc.) are not yet on PyPI, so the
 # derived datasets resolve `sportsdataverse` to the local sibling checkout
 # (editable). Swap to the PyPI pin once a release ships NCAA support.
