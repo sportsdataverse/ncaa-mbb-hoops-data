@@ -74,7 +74,7 @@ def write_dataset(
     spec: DatasetSpec,
     season: int,
     *,
-    base: str | Path = "mbb",
+    base: str | Path = ".",
     release: bool = False,
 ) -> list[Path]:
     """Write the committed parquet (always) + staged release csv (if requested).

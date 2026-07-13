@@ -25,8 +25,14 @@ DEFAULT_REPO = "sportsdataverse/sportsdataverse-data"
 log = get_logger()
 
 
+# Bound each `gh` shell-out so a network stall / hung invocation can't block the
+# whole publish run indefinitely (a failed upload is safe to re-run -- every
+# upload is idempotent via --clobber).
+_GH_TIMEOUT = 180
+
+
 def _gh(args: list[str]) -> None:
-    subprocess.run(["gh", *args], check=True)
+    subprocess.run(["gh", *args], check=True, timeout=_GH_TIMEOUT)
 
 
 def _gh_release_exists(tag: str, repo: str) -> bool:
@@ -35,6 +41,7 @@ def _gh_release_exists(tag: str, repo: str) -> bool:
             ["gh", "release", "view", tag, "--repo", repo],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
+            timeout=_GH_TIMEOUT,
         ).returncode
         == 0
     )
@@ -100,7 +107,11 @@ def publish_dataset(
             / spec.dataset
             / f"{spec.stem}_{season}.rds"
         )
-        if parquet.exists() and not rds_path.exists():
+        # Regenerate the rds when it's missing OR stale (parquet rebuilt since):
+        # a prior run's rds must never be uploaded against a freshly written parquet.
+        if parquet.exists() and (
+            not rds_path.exists() or rds_path.stat().st_mtime < parquet.stat().st_mtime
+        ):
             from ncaa_mbb_data_build import rds
 
             try:

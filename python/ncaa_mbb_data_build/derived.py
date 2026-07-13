@@ -104,7 +104,9 @@ def rosters(finals: list[dict], season: int) -> pl.DataFrame:
     combined = pl.concat(frames, how="diagonal_relaxed")
     return (
         combined.group_by("team", "player")
-        .agg(pl.col("game_id").n_unique().alias("games"))
+        # n_unique() returns UInt32; cast to Int64 so the populated path matches
+        # the empty-fallback schema above (stable season parquet dtype).
+        .agg(pl.col("game_id").n_unique().cast(pl.Int64).alias("games"))
         .with_columns(pl.lit(season, dtype=pl.Int64).alias("season"))
         .select("season", "team", "player", "games")
         .sort("team", "player")

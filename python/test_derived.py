@@ -55,6 +55,18 @@ def test_rosters_distinct_team_player_per_season():
     assert df.select("team", "player").is_duplicated().sum() == 0
 
 
+def test_rosters_empty_and_populated_share_schema():
+    """The empty fallback and the populated path must agree on dtypes --
+    notably games is Int64 (n_unique returns UInt32), so the season parquet
+    schema stays stable whether or not a season has games."""
+    populated = rosters(_load_finals(), 2026)
+    empty = rosters([], 2026)
+    assert empty.height == 0
+    assert empty.schema == populated.schema
+    assert populated.schema["games"] == pl.Int64
+    assert empty.schema["games"] == pl.Int64
+
+
 def test_schedule_final_score_is_max_not_opening_row():
     """Locks in .max() of pbp home/away score -- not pbp[0] (which is 0-0 opening tip)."""
     finals = _load_finals()
