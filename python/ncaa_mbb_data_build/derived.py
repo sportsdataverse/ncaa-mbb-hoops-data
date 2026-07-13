@@ -53,15 +53,16 @@ def schedule(finals: list[dict], season: int) -> pl.DataFrame:
                 "skipping schedule row for %s: empty pbp", final.get("contest_id")
             )
             continue
-        pbp_df = pl.DataFrame(pbp)
+        home_score = max((r.get("home_score") or 0) for r in pbp)
+        away_score = max((r.get("away_score") or 0) for r in pbp)
         rows.append(
             {
                 "contest_id": str(final["contest_id"]),
                 "game_date": pbp[0]["game_date"],
                 "home": pbp[0]["home"],
                 "away": pbp[0]["away"],
-                "home_score": pbp_df.get_column("home_score").max(),
-                "away_score": pbp_df.get_column("away_score").max(),
+                "home_score": home_score,
+                "away_score": away_score,
                 "season": season,
             }
         )
