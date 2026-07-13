@@ -1,18 +1,16 @@
-"""Dataset IO -- polars port of the R write + ``.append_manifest`` steps.
+"""Dataset IO -- parquet writer (committed) + csv release staging + manifest.
 
-Writes ``{base}/{dataset}/parquet/{stem}_{season}.parquet`` and
-``{base}/{dataset}/csv/{stem}_{season}{csv_suffix}`` (the big three commit
-``.csv.gz`` to the tree, matching R ``fwrite``; the rest plain ``.csv``), and
-upserts the ``{league}_{dataset}_in_data_repo.csv`` manifest. ``.rds`` is R's
-native format and is produced by the retained R serialize step (cutover); the
-parity bar here is the parquet.
+Format policy: the tree commits **parquet only**, under
+``mbb/{dataset}/parquet/{stem}_{season}.parquet``. Release assets (csv here;
+``.rds`` in a later task) are staged under the gitignored
+``mbb/_release_build/`` and only produced when ``release=True`` -- they are
+never committed. A tiny per-dataset ``manifest.csv`` (committed) tracks one
+row per ``(dataset, season)``, upserted on every write.
 """
 
 from __future__ import annotations
 
-import gzip
 from datetime import datetime, timezone
-from io import BytesIO
 from pathlib import Path
 
 import polars as pl
@@ -20,9 +18,16 @@ import polars as pl
 from ncaa_mbb_data_build._logging import get_logger, human_size
 from ncaa_mbb_data_build.config import DatasetSpec
 
-_LEAGUE = "wnba"
+_LEAGUE = "mbb"
 
 log = get_logger()
+
+_MANIFEST_SCHEMA: dict[str, pl.PolarsDataType] = {
+    "dataset": pl.Utf8,
+    "season": pl.Int64,
+    "row_count": pl.Int64,
+    "generated_at_utc": pl.Utf8,
+}
 
 
 def _utc_now_str() -> str:
@@ -30,93 +35,78 @@ def _utc_now_str() -> str:
 
 
 def manifest_path(spec: DatasetSpec, base: Path) -> Path:
-    return base / spec.dataset / f"{_LEAGUE}_{spec.dataset}_in_data_repo.csv"
+    return base / "mbb" / spec.dataset / "manifest.csv"
 
 
-def _append_manifest(spec: DatasetSpec, season: int, row_count: int, base: Path) -> Path | None:
-    """Append one run's row to the dataset's manifest log (R ``fwrite(append=TRUE)``).
+def _upsert_manifest(
+    spec: DatasetSpec, season: int, row_count: int, base: Path
+) -> Path:
+    """Upsert one ``(dataset, season)`` row into the dataset's manifest, keep latest.
 
-    The tree file is an append LOG -- one row per run, not per season (the real
-    committed manifests carry 140-155 rows). ``publish`` is what collapses it to
-    one row per season for the release asset. Rewriting the tree file as an
-    upsert here would silently destroy that published history.
+    Unlike an append log, this keeps exactly one row per season so idempotent
+    rebuilds don't bloat the file: read existing (if present), drop any row
+    for this ``(dataset, season)``, append the new row, sort by season.
     """
-    if spec.manifest_endpoint is None:
-        return None  # R does not manifest this dataset; see DatasetSpec
     f = manifest_path(spec, base)
     f.parent.mkdir(parents=True, exist_ok=True)
     row = pl.DataFrame(
         {
+            "dataset": [spec.dataset],
             "season": [int(season)],
             "row_count": [int(row_count)],
             "generated_at_utc": [_utc_now_str()],
-            "source_endpoint": [spec.manifest_endpoint.format(season=season)],
-        }
+        },
+        schema=_MANIFEST_SCHEMA,
     )
     if f.exists():
-        row = pl.concat([pl.read_csv(f), row], how="diagonal_relaxed")
+        existing = pl.read_csv(f, schema=_MANIFEST_SCHEMA)
+        existing = existing.filter(
+            ~((pl.col("dataset") == spec.dataset) & (pl.col("season") == int(season)))
+        )
+        row = pl.concat([existing, row], how="vertical")
+    row = row.sort("season")
     row.write_csv(f)
     return f
 
 
 def write_dataset(
-    df: pl.DataFrame, spec: DatasetSpec, season: int, *, base: str | Path = "wnba"
+    df: pl.DataFrame,
+    spec: DatasetSpec,
+    season: int,
+    *,
+    base: str | Path = "mbb",
+    release: bool = False,
 ) -> list[Path]:
-    """Write parquet + csv + manifest for one dataset/season; return parquet+csv paths."""
+    """Write the committed parquet (always) + staged release csv (if requested).
+
+    Always writes ``{base}/mbb/{dataset}/parquet/{stem}_{season}.parquet``.
+    When ``release=True`` also writes a plain csv to the gitignored
+    ``{base}/mbb/_release_build/{dataset}/{stem}_{season}.csv``. Upserts the
+    committed ``{base}/mbb/{dataset}/manifest.csv`` row for every write.
+    Returns the parquet path, plus the csv path when ``release=True``.
+    """
     base = Path(base)
-    pq_dir = base / spec.dataset / "parquet"
-    csv_dir = base / spec.dataset / "csv"
+    pq_dir = base / "mbb" / spec.dataset / "parquet"
     pq_dir.mkdir(parents=True, exist_ok=True)
-    csv_dir.mkdir(parents=True, exist_ok=True)
     pq = pq_dir / f"{spec.stem}_{season}.parquet"
-    csv = csv_dir / f"{spec.stem}_{season}{spec.csv_suffix}"
     df.write_parquet(pq)
-    if spec.csv_suffix.endswith(".gz"):
-        buf = BytesIO()
-        df.write_csv(buf)
-        with gzip.open(csv, "wb") as fh:
-            fh.write(buf.getvalue())
-    else:
+    out = [pq]
+
+    if release:
+        csv_dir = base / "mbb" / "_release_build" / spec.dataset
+        csv_dir.mkdir(parents=True, exist_ok=True)
+        csv = csv_dir / f"{spec.stem}_{season}.csv"
         df.write_csv(csv)
-    manifest = _append_manifest(spec, season, df.height, base)
+        out.append(csv)
+
+    manifest = _upsert_manifest(spec, season, df.height, base)
     log.info(
-        "wrote %s (%s) + %s (%s), %d rows x %d cols; manifest %s",
+        "wrote %s (%s), %d rows x %d cols%s; manifest %s upserted",
         pq,
         human_size(pq.stat().st_size),
-        csv.name,
-        human_size(csv.stat().st_size),
         df.height,
         df.width,
-        f"{manifest.name} appended" if manifest else "n/a (not manifested)",
+        f" + {out[1].name} (release)" if release else "",
+        manifest.name,
     )
-    return [pq, csv]
-
-
-def write_schedule_extras(
-    master: pl.DataFrame, games: pl.DataFrame, *, base: str | Path = "wnba"
-) -> list[Path]:
-    """Write the master-schedule extras under ``{base}/schedules/``.
-
-    R never committed these (``sportsdataverse_save`` uploaded straight from
-    the frame); the tree copy exists so the R serialize tail can produce the
-    ``.rds`` assets. Files sit at the ``schedules/`` root -- NOT inside
-    ``parquet/`` -- so the per-season glob in ``build_schedule_extras`` never
-    picks the master back up.
-    """
-    root = Path(base) / "schedules"
-    root.mkdir(parents=True, exist_ok=True)
-    out: list[Path] = []
-    for name, df in (("wnba_schedule_master", master), ("wnba_games_in_data_repo", games)):
-        pq = root / f"{name}.parquet"
-        csv = root / f"{name}.csv"
-        df.write_parquet(pq)
-        df.write_csv(csv)
-        log.info(
-            "wrote %s (%s), %d rows x %d cols",
-            pq,
-            human_size(pq.stat().st_size),
-            df.height,
-            df.width,
-        )
-        out.extend([pq, csv])
     return out
