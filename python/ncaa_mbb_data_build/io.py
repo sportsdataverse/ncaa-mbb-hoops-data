@@ -35,7 +35,7 @@ def _utc_now_str() -> str:
 
 
 def manifest_path(spec: DatasetSpec, base: Path) -> Path:
-    return base / "mbb" / spec.dataset / "manifest.csv"
+    return base / _LEAGUE / spec.dataset / "manifest.csv"
 
 
 def _upsert_manifest(
@@ -86,14 +86,14 @@ def write_dataset(
     Returns the parquet path, plus the csv path when ``release=True``.
     """
     base = Path(base)
-    pq_dir = base / "mbb" / spec.dataset / "parquet"
+    pq_dir = base / _LEAGUE / spec.dataset / "parquet"
     pq_dir.mkdir(parents=True, exist_ok=True)
     pq = pq_dir / f"{spec.stem}_{season}.parquet"
     df.write_parquet(pq)
     out = [pq]
 
     if release:
-        csv_dir = base / "mbb" / "_release_build" / spec.dataset
+        csv_dir = base / _LEAGUE / "_release_build" / spec.dataset
         csv_dir.mkdir(parents=True, exist_ok=True)
         csv = csv_dir / f"{spec.stem}_{season}.csv"
         df.write_csv(csv)

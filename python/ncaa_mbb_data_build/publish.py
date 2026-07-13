@@ -41,9 +41,9 @@ def _gh_release_exists(tag: str, repo: str) -> bool:
 
 
 def _dataset_files(spec: DatasetSpec, season: int, base: Path) -> list[Path]:
-    release_dir = base / "mbb" / "_release_build" / spec.dataset
+    release_dir = base / _LEAGUE / "_release_build" / spec.dataset
     cands = [
-        base / "mbb" / spec.dataset / "parquet" / f"{spec.stem}_{season}.parquet",
+        base / _LEAGUE / spec.dataset / "parquet" / f"{spec.stem}_{season}.parquet",
         release_dir / f"{spec.stem}_{season}.csv",
         release_dir / f"{spec.stem}_{season}.rds",
     ]
@@ -91,10 +91,14 @@ def publish_dataset(
 
     if make_rds:
         parquet = (
-            base / "mbb" / spec.dataset / "parquet" / f"{spec.stem}_{season}.parquet"
+            base / _LEAGUE / spec.dataset / "parquet" / f"{spec.stem}_{season}.parquet"
         )
         rds_path = (
-            base / "mbb" / "_release_build" / spec.dataset / f"{spec.stem}_{season}.rds"
+            base
+            / _LEAGUE
+            / "_release_build"
+            / spec.dataset
+            / f"{spec.stem}_{season}.rds"
         )
         if parquet.exists() and not rds_path.exists():
             from ncaa_mbb_data_build import rds
