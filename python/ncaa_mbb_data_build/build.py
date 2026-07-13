@@ -1,9 +1,17 @@
-"""Per-season build driver -- polars port of the R ``wnba_<dataset>_games(y)`` loop.
+"""Per-season build driver -- ties ingest -> reshapers/derived -> concat -> io together.
 
-Enumerate season game-ids -> read each final.json -> reshape (delegating to
-the sdv-py producer) -> drift-safe union -> write -> (opt) publish. Per-game
-failures are swallowed (R tryCatch parity) so one bad payload can't sink the
-season.
+Two paths, keyed off ``config.REGISTRY[dataset].family``:
+
+- DIRECT (6 datasets): read each game's parsed JSON, extract the family,
+  concat across the season. One bad game is logged + skipped, never aborts
+  the season (R tryCatch parity).
+- DERIVED (schedule, rosters, team_ids): built from all season finals (or,
+  for team_ids, from no finals at all) by ``derived.py``.
+
+Either way the result is written via ``io.write_dataset`` and, if requested,
+published lazily (see the local ``publish`` import below -- ``publish.py``
+is still the WNBA version until Task 9, so importing it at module load would
+break ``import ncaa_mbb_data_build.build``).
 """
 
 from __future__ import annotations
@@ -15,7 +23,7 @@ from pathlib import Path
 import polars as pl
 from tqdm import tqdm
 
-from ncaa_mbb_data_build import ingest, io, publish, reshapers
+from ncaa_mbb_data_build import derived, ingest, io, reshapers
 from ncaa_mbb_data_build._logging import get_logger
 from ncaa_mbb_data_build.config import REGISTRY
 
@@ -29,142 +37,140 @@ def build_season(
     dataset: str,
     season: int,
     *,
-    base: str | Path = "wnba",
+    base: str | Path,
     raw_root: str | Path | None = None,
     publish_release: bool = False,
     dry_run: bool = False,
 ) -> pl.DataFrame:
-    """Build one dataset/season from the raw checkout: reshape, union, write, (opt) publish.
+    """Build one dataset/season from the raw checkout: reshape/derive, write, (opt) publish.
 
     Args:
-        dataset: Key into ``config.REGISTRY`` (e.g. ``"team_box"``).
-        season: Season year to build.
+        dataset: Key into ``config.REGISTRY`` (e.g. ``"pbp"``, ``"schedule"``).
+        season: Season ending year (e.g. 2026 for 2025-26).
         base: Output root directory for ``io.write_dataset``.
-        raw_root: Sibling ``wehoop-wnba-raw`` checkout root (arg > ``WEHOOP_WNBA_RAW_ROOT`` env).
+        raw_root: Sibling ``ncaa-mbb-hoops-raw`` checkout root (arg > env).
         publish_release: If True, upload the written files via ``publish.publish_dataset``.
         dry_run: If True, run the publish step in dry-run mode (no ``gh`` calls).
 
     Returns:
-        pl.DataFrame: The built season frame, or an empty frame if no games qualified.
-
-    Example:
-        Quick start::
-
-            from ncaa_mbb_data_build.build import build_season
-            df = build_season("team_box", 2025)
-            print(df.shape)
+        pl.DataFrame: The built season frame, or an empty frame if nothing qualified.
     """
     spec = REGISTRY[dataset]
-    if dataset not in reshapers.SEASON_BUILDERS and spec.reshaper not in reshapers.RESHAPERS:
-        # The three crosswalks build from LIVE ESPN+Torvik+Fox inputs (not the
-        # raw repo) via wehoop::wnba_*_crosswalk; they stay on the R scripts
-        # (wnba_1{1,2,3}_*_creation.R) until the Torvik/Fox source surfaces are
-        # ported to sportsdataverse.
-        raise NotImplementedError(f"{dataset}: crosswalks still build via the R creation scripts")
     root = ingest.raw_root(raw_root)
     started = time.monotonic()
-    mode = "http" if isinstance(root, str) else "disk"
-    if dataset in reshapers.SEASON_BUILDERS:
-        # Season-level datasets (schedules/shots/...) build from the raw season
-        # tree and/or already-built parquets -- no per-game loop.
-        log.info("%s %s: season-level build starting (raw=%s via %s)", dataset, season, root, mode)
-        out = reshapers.SEASON_BUILDERS[dataset](season, raw_root=root, base=Path(base))
-        if out.height == 0:
+
+    if spec.family is not None:
+        out = _build_direct(dataset, spec.family, season, root)
+    elif dataset == "team_ids":
+        out = derived.team_ids(season)
+    elif dataset in ("schedule", "rosters"):
+        contest_ids = ingest.season_contest_ids(season, raw_root=root)
+        if not contest_ids:
             log.warning(
-                "%s %s: season-level build produced 0 rows; nothing written", dataset, season
+                "%s %s: no contest_ids in schedule_master; nothing built",
+                dataset,
+                season,
             )
-            return out
-        io.write_dataset(out, spec, season, base=base)
-        if publish_release or dry_run:
-            publish.publish_dataset(spec, season, base=base, dry_run=dry_run)
-        if dataset == "schedules":
-            # espn_wnba_03 tail: rebuild the full-history master + PBP==TRUE
-            # extras from the committed per-season parquets and publish them
-            # to the schedules tag (WNBA actively ships these; WBB doesn't).
-            master, games = reshapers.build_schedule_extras(base=Path(base))
-            if master.height and not games.height:
-                # games = the PBP==TRUE filter. Master rows but zero PBP games
-                # means the pbp parquets are missing (a failed/skipped pbp
-                # build), not that no game has pbp -- publishing here would
-                # overwrite wnba_games_in_data_repo with an empty asset.
-                log.error(
-                    "schedules %s: master has %d rows but ZERO games flagged PBP -- "
-                    "refusing to publish the schedule extras. Build pbp first.",
-                    season,
-                    master.height,
-                )
-            elif master.height:
-                extra_files = io.write_schedule_extras(master, games, base=base)
-                if publish_release or dry_run:
-                    publish.publish_files(spec.tag, extra_files, dry_run=dry_run)
-        log.info(
-            "%s %s: done -- %d rows in %.1fs",
-            dataset,
-            season,
-            out.height,
-            time.monotonic() - started,
+            return pl.DataFrame()
+        finals = [
+            f
+            for cid in contest_ids
+            if (f := ingest.read_parsed(cid, raw_root=root)) is not None
+        ]
+        out = (
+            derived.schedule(finals, season)
+            if dataset == "schedule"
+            else derived.rosters(finals, season)
         )
+    else:
+        raise ValueError(
+            f"{dataset}: no DIRECT family and no DERIVED builder registered"
+        )
+
+    if out.height == 0:
+        log.warning("%s %s: 0 rows built; nothing written", dataset, season)
         return out
-    game_ids = ingest.season_game_ids(season, raw_root=root)
-    if not game_ids:
-        log.warning(
-            "%s %s: no game_json games in the season schedule; nothing built", dataset, season
-        )
-        return pl.DataFrame()
+
+    io.write_dataset(out, spec, season, base=base, release=publish_release or dry_run)
+    if publish_release or dry_run:
+        from ncaa_mbb_data_build import (
+            publish,
+        )  # lazy: publish.py is still WNBA (Task 9)
+
+        publish.publish_dataset(spec, season, base=base, dry_run=dry_run)
+
     log.info(
-        "%s %s: per-game build starting -- %d games (raw=%s via %s)",
+        "%s %s: done -- %d rows in %.1fs",
         dataset,
         season,
-        len(game_ids),
-        root,
-        mode,
+        out.height,
+        time.monotonic() - started,
     )
-    reshape = reshapers.RESHAPERS[spec.reshaper]
+    return out
+
+
+def _build_direct(
+    dataset: str, family: str, season: int, root: str | Path
+) -> pl.DataFrame:
+    """DIRECT-path loop: per-game read + extract + concat, one bad game skipped."""
+    contest_ids = ingest.season_contest_ids(season, raw_root=root)
+    if not contest_ids:
+        log.warning(
+            "%s %s: no contest_ids in schedule_master; nothing built", dataset, season
+        )
+        return pl.DataFrame()
+
+    log.info(
+        "%s %s: per-game build starting -- %d games", dataset, season, len(contest_ids)
+    )
     frames: list[pl.DataFrame] = []
     missing = 0
     failed = 0
-    for n, gid in enumerate(tqdm(game_ids, desc=f"{dataset} {season}", disable=None), start=1):
-        final = ingest.read_final(gid, raw_root=root)
+    for n, cid in enumerate(
+        tqdm(contest_ids, desc=f"{dataset} {season}", disable=None), start=1
+    ):
+        final = ingest.read_parsed(cid, raw_root=root)
         if final is None:
             missing += 1
             continue
         try:
-            frame = reshape(final, season=season, game_id=gid)
-        except Exception as e:  # R tryCatch(...) -> NULL parity
-            log.warning("%s %s: reshape failed for game %s: %s", dataset, season, gid, e)
+            frame = reshapers.extract_family(
+                final, family, season=season, contest_id=cid
+            )
+        except Exception as e:  # one bad game must not abort the season
+            log.warning(
+                "%s %s: extract failed for game %s: %s", dataset, season, cid, e
+            )
             failed += 1
             continue
-        if frame is not None and frame.height:
+        if frame.height:
             frames.append(frame)
         if not sys.stderr.isatty() and n % _PROGRESS_EVERY == 0:
-            log.info("%s %s: %d/%d games processed", dataset, season, n, len(game_ids))
+            log.info(
+                "%s %s: %d/%d games processed", dataset, season, n, len(contest_ids)
+            )
+
     if missing:
         log.warning(
-            "%s %s: %d/%d games had no readable payload", dataset, season, missing, len(game_ids)
+            "%s %s: %d/%d games had no readable payload",
+            dataset,
+            season,
+            missing,
+            len(contest_ids),
         )
     if failed:
-        log.warning("%s %s: %d/%d games failed to reshape", dataset, season, failed, len(game_ids))
+        log.warning(
+            "%s %s: %d/%d games failed to extract",
+            dataset,
+            season,
+            failed,
+            len(contest_ids),
+        )
     if not frames:
-        log.warning("%s %s: 0 games reshaped; nothing written", dataset, season)
+        log.warning("%s %s: 0 games extracted; nothing written", dataset, season)
         return pl.DataFrame()
+
     out = pl.concat(frames, how="diagonal_relaxed")
-    # R: every per-game season compile is arrange(desc(game_date)) before
-    # write/publish (stable, NA last).
-    if "game_date" in out.columns:
-        out = out.sort("game_date", descending=True, nulls_last=True, maintain_order=True)
-    # WNBA season-level fixups (e.g. espn_wnba_01's type_abbreviation backfill).
-    if spec.reshaper in reshapers.SEASON_POSTPROCESS:
-        out = reshapers.SEASON_POSTPROCESS[spec.reshaper](out)
-    io.write_dataset(out, spec, season, base=base)
-    if publish_release or dry_run:
-        publish.publish_dataset(spec, season, base=base, dry_run=dry_run)
-    log.info(
-        "%s %s: done -- %d rows from %d/%d games in %.1fs",
-        dataset,
-        season,
-        out.height,
-        len(frames),
-        len(game_ids),
-        time.monotonic() - started,
-    )
+    if "contest_id" in out.columns:
+        out = out.sort("contest_id", maintain_order=True)
     return out
