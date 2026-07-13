@@ -88,7 +88,10 @@ def build_season(
         )
 
     if out.height == 0:
-        log.warning("%s %s: 0 rows built; nothing written", dataset, season)
+        # _build_direct already warns (empty contest_ids or 0 games extracted)
+        # before returning an empty frame -- don't warn twice for that path.
+        if spec.family is None:
+            log.warning("%s %s: 0 rows built; nothing written", dataset, season)
         return out
 
     io.write_dataset(out, spec, season, base=base, release=publish_release or dry_run)

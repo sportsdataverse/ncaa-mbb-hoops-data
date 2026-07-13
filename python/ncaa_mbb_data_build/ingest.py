@@ -76,13 +76,13 @@ def read_parsed(contest_id: str, *, raw_root: str | Path | None = None) -> dict 
             return None
         try:
             return json.loads(f.read_text(encoding="utf-8"))
-        except (json.JSONDecodeError, OSError):
+        except (json.JSONDecodeError, OSError, UnicodeDecodeError):
             return None
     cached = _cache_root() / rel
     if cached.exists():
         try:
             return json.loads(cached.read_text(encoding="utf-8"))
-        except (json.JSONDecodeError, OSError):
+        except (json.JSONDecodeError, OSError, UnicodeDecodeError):
             return None
     body = _http_get_bytes(f"{RAW_HTTP_BASE}/json/{contest_id}.json")
     if body is None:

@@ -28,7 +28,7 @@ def _build(args: argparse.Namespace) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="ncaa_mbb_data_build")
-    sub = p.add_subparsers(dest="command", required=True)
+    sub = p.add_subparsers(dest="command", required=False)
 
     build_p = sub.add_parser("build", help="Build one or all datasets for a season.")
     build_p.add_argument("--dataset", required=True, choices=sorted(REGISTRY) + ["all"])
@@ -41,4 +41,7 @@ def main(argv: list[str] | None = None) -> int:
     build_p.set_defaults(func=_build)
 
     args = p.parse_args(argv)
+    if args.command is None:
+        p.print_help()
+        return 2
     return args.func(args)
