@@ -2,7 +2,7 @@
 
 Everything the pipeline reports flows through one ``ncaa_mbb_data_build`` logger
 writing to *stdout* (not stderr), because the daily processor tees stdout into
-the per-season rotating logfile (``logs/wehoop_wnba_data_logfile_{season}.log``)
+the per-season rotating logfile (``logs/ncaa_mbb_data_logfile_{season}.log``)
 -- the same paradigm as the other ``-data`` repos. Each record is flushed on
 emit so lines land in the Actions console and the tee'd file in real time.
 

@@ -9,9 +9,9 @@ Two paths, keyed off ``config.REGISTRY[dataset].family``:
   for team_ids, from no finals at all) by ``derived.py``.
 
 Either way the result is written via ``io.write_dataset`` and, if requested,
-published lazily (see the local ``publish`` import below -- ``publish.py``
-is still the WNBA version until Task 9, so importing it at module load would
-break ``import ncaa_mbb_data_build.build``).
+published lazily (see the local ``publish`` import below -- deferred so that
+importing ``publish`` -- which shells out to ``gh`` -- isn't a hard
+requirement just to ``import ncaa_mbb_data_build.build``).
 """
 
 from __future__ import annotations
@@ -95,7 +95,7 @@ def build_season(
     if publish_release or dry_run:
         from ncaa_mbb_data_build import (
             publish,
-        )  # lazy: publish.py is still WNBA (Task 9)
+        )  # lazy: avoid a hard `gh` dependency for plain imports
 
         publish.publish_dataset(spec, season, base=base, dry_run=dry_run)
 
