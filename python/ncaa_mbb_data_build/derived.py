@@ -27,14 +27,20 @@ logger = logging.getLogger(__name__)
 def team_ids(season: int) -> pl.DataFrame:
     """Stats.ncaa.org team-id crosswalk for one season.
 
-    ``season`` is the ending year (2026 -> the "2025-26" season row).
+    ``season`` is the ending year (2026 -> the "2025-26" season row), and the
+    output ``season`` column is that same Int64 ending-year -- consistent
+    with every other dataset (so e.g. ``pbp.join(team_ids(2026), on="season")``
+    actually matches). The crosswalk's own ``"YYYY-YY"`` string label is only
+    used internally to filter; it's a bijection with the ending year, so
+    replacing it loses no information.
     """
     from sportsdataverse.mbb.mbb_ncaa_team_ids import ncaa_mbb_team_ids
 
     season_str = f"{season - 1}-{str(season)[-2:]}"
     df = ncaa_mbb_team_ids()
     return df.filter(pl.col("season") == season_str).with_columns(
-        pl.col("id").cast(pl.Utf8)
+        pl.col("id").cast(pl.Utf8),
+        pl.lit(season, dtype=pl.Int64).alias("season"),
     )
 
 
