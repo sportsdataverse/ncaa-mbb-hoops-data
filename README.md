@@ -1,9 +1,11 @@
 # ncaa-mbb-hoops-data
 
 Python producer that reshapes [`ncaa-mbb-hoops-raw`](https://github.com/sportsdataverse/ncaa-mbb-hoops-raw)'s
-parsed ESPN NCAA men's basketball JSON into season-level tidy datasets. Sister
-repo to the wehoop (WNBA) and hoopR (NBA/WBB) data producers -- same
-build -> publish shape, different sport/league.
+parsed `stats.ncaa.org` men's basketball JSON into season-level tidy datasets.
+The upstream source is `stats.ncaa.org` (via the bigballR port in sdv-py) --
+**not** ESPN; NCAA contest ids are strings, not ESPN ints. Sister repo to the
+wehoop (WNBA) and hoopR (NBA/WBB) data producers -- same build -> publish
+shape, different sport/league.
 
 ## Datasets
 

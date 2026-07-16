@@ -6,6 +6,7 @@ from pathlib import Path
 import polars as pl
 
 from ncaa_mbb_data_build.derived import rosters, schedule, team_ids
+from ncaa_mbb_data_build.reshapers import extract_family
 
 FIXTURES_DIR = (
     Path(__file__).parent / "tests" / "fixtures" / "raw_root" / "mbb" / "json"
@@ -26,7 +27,30 @@ def test_team_ids_2026_season():
     assert df.schema["id"] == pl.Utf8
     assert "team" in df.columns
     assert "season" in df.columns
-    assert (df.get_column("season") == "2025-26").all()
+    assert df.schema["season"] == pl.Int64
+    assert (df.get_column("season") == 2026).all()
+
+
+def test_team_ids_season_is_int64_and_joins_direct_dataset():
+    """The real bug Fix 2 prevents: team_ids's season must actually JOIN
+    against a DIRECT dataset's season (Int64 ending-year), not just carry
+    the right dtype in isolation -- a Utf8 "2025-26" season here would
+    silently zero-row every such join (pbp.join(team_ids, on="season"))."""
+    finals = _load_finals()
+    pbp = pl.concat(
+        [
+            extract_family(f, "pbp", season=2026, contest_id=f["contest_id"])
+            for f in finals
+        ],
+        how="diagonal_relaxed",
+    )
+    ids = team_ids(2026)
+
+    assert ids.schema["season"] == pl.Int64
+    assert ids.get_column("season").unique().to_list() == [2026]
+
+    joined = pbp.join(ids, on="season", how="inner")
+    assert joined.height > 0
 
 
 def test_schedule_one_row_per_fixture_game():
