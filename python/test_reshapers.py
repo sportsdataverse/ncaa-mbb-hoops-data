@@ -109,7 +109,7 @@ def test_lineups_flatten_real_shape():
     flat = _flatten_lineup_row(row)
     assert all(not isinstance(v, (dict, list)) for v in flat.values())
     assert flat["team"] == "Buffalo" and flat["opponent"] == "Southern Miss."
-    assert flat["player_1"] == "Brizzi, Angelo" and flat["player_5"] == "Batchelor, Noah"
+    assert flat["player_1"] == "Batchelor, Noah" and flat["player_5"] == "McKenna, Ezra"  # sorted
     assert flat["pts"] == 8 and flat["fga"] == 7 and flat["rim_ast"] == 1
     assert flat["opp_pts"] is None and flat["opp_fga"] is None
     assert flat["players_in"] is None  # empty list -> None, not ""
