@@ -373,9 +373,16 @@ def rosters(finals: list[dict], season: int) -> pl.DataFrame:
     doesn't hold. Distinct players from ``player_box`` -- present on every
     game -- is the only faithful season-roster source available here.
     """
+    # The games key is the contest id. Taken from the record's TOP-LEVEL
+    # `contest_id` (one game per `final`, so it is constant across the family's
+    # rows) rather than the per-row column, matching how `schedule()` above
+    # reads it -- and so this stays correct against parsed JSON written either
+    # side of the game_id -> contest_id rename.
     frames = [
-        pl.DataFrame(final["player_box"], infer_schema_length=None).select(
-            "team", "player", "game_id"
+        pl.DataFrame(final["player_box"], infer_schema_length=None)
+        .select("team", "player")
+        .with_columns(
+            pl.lit(str(final["contest_id"]), dtype=pl.Utf8).alias("contest_id")
         )
         for final in finals
         if final.get("player_box")
@@ -394,7 +401,7 @@ def rosters(finals: list[dict], season: int) -> pl.DataFrame:
         combined.group_by("team", "player")
         # n_unique() returns UInt32; cast to Int64 so the populated path matches
         # the empty-fallback schema above (stable season parquet dtype).
-        .agg(pl.col("game_id").n_unique().cast(pl.Int64).alias("games"))
+        .agg(pl.col("contest_id").n_unique().cast(pl.Int64).alias("games"))
         .with_columns(pl.lit(season, dtype=pl.Int64).alias("season"))
         .select("season", "team", "player", "games")
         .sort("team", "player")
