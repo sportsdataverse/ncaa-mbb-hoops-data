@@ -1,4 +1,5 @@
-"""Derived datasets -- the 3 non-family datasets: schedule, rosters, team_ids.
+"""Derived datasets -- the 5 non-family datasets: matchup_stints, team_rosters,
+schedule, rosters, team_ids.
 
 Unlike the 6 DIRECT datasets (see ``reshapers.extract_family``), these are
 not a straight extract of a parsed-JSON top-level key:
