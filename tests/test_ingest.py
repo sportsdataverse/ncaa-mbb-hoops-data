@@ -40,9 +40,8 @@ def test_read_parsed_malformed_json_returns_none(tmp_path):
     assert read_parsed("99999", raw_root=tmp_path) is None
 
 
-def test_season_contest_ids_filters_and_sorts(tmp_path):
-    (tmp_path / "mbb").mkdir()
-    df = pl.DataFrame(
+def _master_df() -> pl.DataFrame:
+    return pl.DataFrame(
         {
             "contest_id": ["b", "a", "c"],
             "season": ["2026", "2026", "2025"],
@@ -50,12 +49,25 @@ def test_season_contest_ids_filters_and_sorts(tmp_path):
         },
         schema={"contest_id": pl.Utf8, "season": pl.Utf8, "captured": pl.Boolean},
     )
-    df.write_parquet(tmp_path / "mbb" / "schedule_master.parquet")
+
+
+def test_season_contest_ids_filters_and_sorts(tmp_path):
+    (tmp_path / "mbb").mkdir()
+    _master_df().write_parquet(tmp_path / "mbb" / "mbb_schedule_master.parquet")
 
     ids = season_contest_ids(2026, raw_root=tmp_path)
 
     assert ids == ["a", "b"]
     assert all(isinstance(i, str) for i in ids)
+
+
+def test_season_contest_ids_legacy_unprefixed_name_fallback(tmp_path):
+    # The raw repo still writes the pre-D33 unprefixed name; the reader must
+    # keep working against it until the writer renames.
+    (tmp_path / "mbb").mkdir()
+    _master_df().write_parquet(tmp_path / "mbb" / "schedule_master.parquet")
+
+    assert season_contest_ids(2026, raw_root=tmp_path) == ["a", "b"]
 
 
 def test_season_contest_ids_missing_parquet_returns_empty(tmp_path):

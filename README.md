@@ -89,7 +89,7 @@ when that checkout isn't available locally.
 ## Tests
 
 Hermetic, offline, no network: 8 fixture games under
-`tests/fixtures/raw_root/mbb/json/` plus a `schedule_master.parquet`
+`tests/fixtures/raw_root/mbb/json/` plus an `mbb_schedule_master.parquet`
 for season `2026`. `team_ids` reads the bundled sdv-py crosswalk, so it's
 offline too.
 
