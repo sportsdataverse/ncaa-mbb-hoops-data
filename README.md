@@ -89,15 +89,15 @@ when that checkout isn't available locally.
 ## Tests
 
 Hermetic, offline, no network: 8 fixture games under
-`python/tests/fixtures/raw_root/mbb/json/` plus a `schedule_master.parquet`
+`tests/fixtures/raw_root/mbb/json/` plus a `schedule_master.parquet`
 for season `2026`. `team_ids` reads the bundled sdv-py crosswalk, so it's
 offline too.
 
 ```bash
-uv run pytest python/ -q
+uv run pytest -q
 ```
 
-`python/test_e2e.py` builds all 9 datasets from the fixtures into a temp
+`tests/test_e2e.py` builds all 9 datasets from the fixtures into a temp
 directory and asserts each parquet is written, non-empty, schema-stable
 across the write/read round-trip, and holds the dtype-discipline contract
 (`contest_id`/`id` as Utf8, `season` as Int64).

@@ -9,7 +9,7 @@ from ncaa_mbb_data_build.derived import rosters, schedule, team_ids
 from ncaa_mbb_data_build.reshapers import extract_family
 
 FIXTURES_DIR = (
-    Path(__file__).parent / "tests" / "fixtures" / "raw_root" / "mbb" / "json"
+    Path(__file__).parent / "fixtures" / "raw_root" / "mbb" / "json"
 )
 
 

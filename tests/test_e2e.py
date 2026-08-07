@@ -16,7 +16,7 @@ import polars as pl
 from ncaa_mbb_data_build.build import build_season
 from ncaa_mbb_data_build.config import REGISTRY
 
-RAW_ROOT = Path(__file__).parent / "tests" / "fixtures" / "raw_root"
+RAW_ROOT = Path(__file__).parent / "fixtures" / "raw_root"
 
 # The 6 DIRECT datasets + schedule all carry contest_id (Utf8, dtype discipline).
 _HAS_CONTEST_ID = {
