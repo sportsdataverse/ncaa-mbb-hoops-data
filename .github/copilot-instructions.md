@@ -22,8 +22,11 @@ sibling `ncaa-mbb-hoops-raw` checkout (or `NCAA_MBB_RAW_ROOT`) and never hits
   dataset registry — some datasets are direct extracts of a parsed-JSON key,
   others are derived from other datasets. See `README.md` for the table.
 - `python/ncaa_mbb_NN_*_creation.py` are numbered stage shims (01..11).
-  The numbers are **dataset identity, not execution order**;
-  `tests/test_stage_inventory.py` gates the set.
+  The order is reference/identity -> per-game events+box -> lineup-grain, and
+  it matches `config.REGISTRY` insertion order, which `--dataset all`
+  iterates — so the numbers describe a real full-build sequence. It is a
+  reading order, not a dependency chain: no dataset reads another dataset's
+  output. `tests/test_stage_inventory.py` gates the set AND the ordering.
 
 ## ⚠️ The schedule-master name fallback
 

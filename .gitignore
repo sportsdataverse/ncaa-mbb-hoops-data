@@ -189,3 +189,6 @@ mbb/_release_build/**/*.rds
 
 # HTTP-mode raw-JSON cache (see python/ncaa_mbb_data_build/ingest.py)
 .ncaa_mbb_raw_cache/
+# Agent tooling state (oh-my-claudecode), never source.
+.omc/
+**/.omc/
