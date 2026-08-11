@@ -44,7 +44,7 @@ they are dimension tables you join everything else to.
 ## Run order
 
 1. **Build** -- reshapes the raw JSON and writes parquet in-repo under
-   `mbb/{dataset}/parquet/{dataset}_{season}.parquet` (committed).
+   `mbb/{dataset}/parquet/ncaa_mbb_{dataset}_{season}.parquet` (committed).
 2. **Publish** -- uploads parquet + csv + rds as release assets to
    `sportsdataverse/sportsdataverse-data` (not committed; requires `gh` auth).
 
@@ -74,8 +74,11 @@ when that checkout isn't available locally.
 
 ## Format policy
 
-- **parquet**: committed in-repo under `mbb/{dataset}/parquet/`, always
-  written on every build.
+- **parquet**: committed in-repo under `mbb/{dataset}/parquet/` as
+  `ncaa_mbb_{dataset}_{season}.parquet`, always written on every build.
+  The `ncaa_mbb_` prefix matches the release tag, so a downloaded asset keeps
+  its provenance in the filename instead of colliding with every other
+  league's `pbp_2026.parquet`.
 - **parquet + csv + rds**: published as release assets to
   `sportsdataverse/sportsdataverse-data`, tagged `ncaa_mbb_{dataset}` (e.g.
   `ncaa_mbb_pbp`). Uploaded one file at a time via

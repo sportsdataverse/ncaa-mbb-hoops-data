@@ -20,7 +20,7 @@ def test_release_false_writes_only_parquet_no_csv_anywhere(tmp_path: Path):
     df = _frame(5)
     paths = write_dataset(df, SPEC, 2026, base=tmp_path)
 
-    pq = tmp_path / "mbb" / "pbp" / "parquet" / "pbp_2026.parquet"
+    pq = tmp_path / "mbb" / "pbp" / "parquet" / "ncaa_mbb_pbp_2026.parquet"
     assert paths == [pq]
     assert pq.exists()
     assert pl.read_parquet(pq).equals(df)
@@ -34,7 +34,7 @@ def test_release_true_writes_parquet_and_staged_csv(tmp_path: Path):
     paths = write_dataset(df, SPEC, 2026, base=tmp_path, release=True)
 
     assert len(paths) == 2
-    csv = tmp_path / "mbb" / "_release_build" / "pbp" / "pbp_2026.csv"
+    csv = tmp_path / "mbb" / "_release_build" / "pbp" / "ncaa_mbb_pbp_2026.csv"
     assert csv in paths
     assert csv.exists()
     read_back = pl.read_csv(csv)
