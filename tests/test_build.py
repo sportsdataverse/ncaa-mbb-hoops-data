@@ -28,7 +28,7 @@ def test_build_season_pbp_direct(tmp_path: Path):
     assert out.schema["contest_id"] == pl.Utf8
     assert (out.get_column("season") == 2026).all()
 
-    pq = tmp_path / "mbb" / "pbp" / "parquet" / "pbp_2026.parquet"
+    pq = tmp_path / "mbb" / "pbp" / "parquet" / "ncaa_mbb_pbp_2026.parquet"
     assert pq.exists()
     assert pl.read_parquet(pq).height == out.height
 
@@ -38,7 +38,7 @@ def test_build_season_shots_direct(tmp_path: Path):
 
     assert out.height == _fixture_family_height("shots")
 
-    pq = tmp_path / "mbb" / "shots" / "parquet" / "shots_2026.parquet"
+    pq = tmp_path / "mbb" / "shots" / "parquet" / "ncaa_mbb_shots_2026.parquet"
     assert pq.exists()
     assert pl.read_parquet(pq).height == out.height
 
@@ -47,7 +47,7 @@ def test_build_season_schedule_derived(tmp_path: Path):
     out = build_season("schedule", 2026, base=tmp_path, raw_root=RAW_ROOT)
 
     assert out.height == 8
-    pq = tmp_path / "mbb" / "schedule" / "parquet" / "schedule_2026.parquet"
+    pq = tmp_path / "mbb" / "schedule" / "parquet" / "ncaa_mbb_schedule_2026.parquet"
     assert pq.exists()
 
 
@@ -55,7 +55,7 @@ def test_build_season_team_ids_derived(tmp_path: Path):
     out = build_season("team_ids", 2026, base=tmp_path, raw_root=RAW_ROOT)
 
     assert out.height > 300
-    pq = tmp_path / "mbb" / "team_ids" / "parquet" / "team_ids_2026.parquet"
+    pq = tmp_path / "mbb" / "team_ids" / "parquet" / "ncaa_mbb_team_ids_2026.parquet"
     assert pq.exists()
 
 

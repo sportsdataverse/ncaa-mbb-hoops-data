@@ -36,7 +36,7 @@ def test_build_all_datasets(tmp_path: Path):
     for ds in REGISTRY:
         df = build_season(ds, 2026, base=tmp_path, raw_root=str(RAW_ROOT))
 
-        pq = tmp_path / "mbb" / ds / "parquet" / f"{ds}_2026.parquet"
+        pq = tmp_path / "mbb" / ds / "parquet" / f"{REGISTRY[ds].stem}_2026.parquet"
         assert pq.exists(), f"{ds}: parquet not written"
 
         on_disk = pl.read_parquet(pq)
