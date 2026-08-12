@@ -72,6 +72,37 @@ SEASON=2026 bash scripts/run_publish.sh                # build + publish
 launchers default it to `../ncaa-mbb-hoops-raw`); an HTTP fallback is used
 when that checkout isn't available locally.
 
+### Historical backfill (whole-history rebuild)
+
+`scripts/run_historical_publish.sh` builds **and publishes every season of every
+dataset**. Ordinary incremental work is `run_build.sh` / `run_publish.sh` for a
+single season -- reach for this only when re-materialising the full history.
+
+```bash
+bash scripts/run_historical_publish.sh                  # 2010..2026, all datasets
+START=2015 END=2010 bash scripts/run_historical_publish.sh
+DATASETS="pbp shots" bash scripts/run_historical_publish.sh
+DRY_RUN=1 bash scripts/run_historical_publish.sh        # build + stage, no uploads
+FORCE=1 bash scripts/run_historical_publish.sh          # rebuild even if current
+
+tail -f logs/historical_publish_<timestamp>.log         # watch it live
+```
+
+It is **resumable**: a `(dataset, season)` is skipped only when its parquet
+exists *and* the committed manifest agrees -- a 0-byte or orphaned parquet
+rebuilds rather than being trusted. Ctrl-C is safe. One failing dataset-season
+never aborts the sweep; the run exits RED at the end and lists what failed.
+
+**Use `FORCE=1` when the build logic has changed**, since the resume check
+proves a file is *present*, not that it was produced by the current code. The
+first full publish needed it: the committed 2025-26 parquet predated the
+identity-enrichment columns and had 55 columns where a fresh build has 87.
+
+It auto-selects an R install that actually has `arrow` for the `.rds` assets
+rather than trusting `Rscript` on `PATH` (on the maintainer's box PATH resolves
+to R-4.5.3, which has no `arrow`, and the only symptom is a warning plus a
+silently missing asset).
+
 ## Format policy
 
 - **parquet**: committed in-repo under `mbb/{dataset}/parquet/` as
