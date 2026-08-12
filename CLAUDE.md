@@ -24,8 +24,8 @@ bug in a *tidy dataset's shape* belongs here, not in `-raw`.
 python/
   ncaa_mbb_data_build/          # the build package (installed by uv sync)
     cli.py  config.py  build.py  ingest.py  derived.py
-    reshapers.py  io.py  publish.py  rds.py  _logging.py  __main__.py
-  ncaa_mbb_NN_*_creation.py     # numbered stage shims, 01..11
+    reshapers.py  io.py  publish.py  rds.py  master.py  _logging.py  __main__.py
+  ncaa_mbb_NN_*_creation.py     # numbered stage shims, 01..11 (+ 99)
 scripts/      # run_build.sh, run_publish.sh
 tests/        # suite + fixtures/ at repo ROOT
 logs/         # build/publish run logs
@@ -48,6 +48,15 @@ iterates, so it is also the order a full build runs in):
 | 09 | matchup_stints | derived |
 | 10 | possessions | direct |
 | 11 | shots | direct |
+| 99 | *(schedule master)* | cross-dataset — RESERVED, not a registry entry |
+
+Stage 99 (`master.py` + `ncaa_mbb_99_schedule_master_creation.py`) is the D34
+coverage index: it runs LAST, reads what the other stages committed, and emits
+the master (denominator, from the RAW repo's D33 schedule master), the
+`games_in_data_repo` manifest (numerator), and a per-season coverage frame. Its
+`in_*` flag set is derived from `REGISTRY` (`level == "game"`) — adding a
+game-grain dataset gets a flag for free. `test_stage_inventory.py` skips 99
+because it has no registry entry by design.
 
 That sequence is a **reading order** — identity/reference first, then per-game
 events and box, then the lineup-grain frames — **not a dependency chain.** No
