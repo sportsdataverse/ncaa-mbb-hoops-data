@@ -45,7 +45,7 @@ they are dimension tables you join everything else to.
 
 1. **Build** -- reshapes the raw JSON and writes parquet in-repo under
    `mbb/{dataset}/parquet/ncaa_mbb_{dataset}_{season}.parquet` (committed).
-2. **Publish** -- uploads parquet + csv + rds as release assets to
+2. **Publish** -- uploads parquet + csv.gz + rds as release assets to
    `sportsdataverse/sportsdataverse-data` (not committed; requires `gh` auth).
 
 ```bash
@@ -79,18 +79,25 @@ when that checkout isn't available locally.
   The `ncaa_mbb_` prefix matches the release tag, so a downloaded asset keeps
   its provenance in the filename instead of colliding with every other
   league's `pbp_2026.parquet`.
-- **parquet + csv + rds**: published as release assets to
+- **parquet + csv.gz + rds**: published as release assets to
   `sportsdataverse/sportsdataverse-data`, tagged `ncaa_mbb_{dataset}` (e.g.
   `ncaa_mbb_pbp`). Uploaded one file at a time via
   `gh release upload <tag> <file> --repo sportsdataverse/sportsdataverse-data --clobber`,
   creating the release if it doesn't exist yet. csv/rds are staged under the
   gitignored `mbb/_release_build/` and are re-derivable from the committed
   parquet -- they are never committed.
+- **The release csv is GZIPPED (`.csv.gz`), deliberately.** One season of `pbp`
+  is ~3.1M rows and writes a **2.03 GB** plain csv -- 99% of GitHub's 2 GiB
+  per-asset hard limit, so a season slightly longer than 2025-26 would fail to
+  upload outright. Gzip takes it to ~100 MB (21x). `espn_cfb_model_pbp` already
+  ships `.csv.gz` on the same release repo. Read one with
+  `pl.read_csv(gzip.open(path, "rb"))`, or `readr::read_csv()` in R (which
+  decompresses transparently).
 - **rds** requires R with the `arrow` package (`Rscript` shells out to
   `arrow::read_parquet` -> `saveRDS`). Resolution order: `SDV_RSCRIPT` env,
   then `RSCRIPT` env, then `Rscript` on `PATH`, then a scan of
   `C:/Program Files/R/R-*/bin/Rscript.exe`. RDS conversion failure (e.g. no R
-  install has `arrow`) only logs a warning -- it never blocks the parquet+csv
+  install has `arrow`) only logs a warning -- it never blocks the parquet+csv.gz
   upload.
 
 ## Requirements / credentials

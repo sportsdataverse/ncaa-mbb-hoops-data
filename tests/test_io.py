@@ -1,11 +1,12 @@
 """Tests for io.py -- parquet writer (in-repo) + csv release staging + manifest."""
 
+import gzip
 from pathlib import Path
 
 import polars as pl
 
 from ncaa_mbb_data_build.config import REGISTRY
-from ncaa_mbb_data_build.io import write_dataset
+from ncaa_mbb_data_build.io import CSV_SUFFIX, write_dataset
 
 SPEC = REGISTRY["pbp"]
 
@@ -26,7 +27,7 @@ def test_release_false_writes_only_parquet_no_csv_anywhere(tmp_path: Path):
     assert pl.read_parquet(pq).equals(df)
 
     release_dir = tmp_path / "mbb" / "_release_build"
-    assert not release_dir.exists() or not any(release_dir.rglob("*.csv"))
+    assert not release_dir.exists() or not any(release_dir.rglob("*.csv.gz"))
 
 
 def test_release_true_writes_parquet_and_staged_csv(tmp_path: Path):
@@ -34,10 +35,16 @@ def test_release_true_writes_parquet_and_staged_csv(tmp_path: Path):
     paths = write_dataset(df, SPEC, 2026, base=tmp_path, release=True)
 
     assert len(paths) == 2
-    csv = tmp_path / "mbb" / "_release_build" / "pbp" / "ncaa_mbb_pbp_2026.csv"
+    csv = tmp_path / "mbb" / "_release_build" / "pbp" / f"ncaa_mbb_pbp_2026{CSV_SUFFIX}"
     assert csv in paths
     assert csv.exists()
-    read_back = pl.read_csv(csv)
+    # Gzipped, and still a readable csv once decompressed -- the asset a
+    # consumer downloads must survive the round trip, not merely exist.
+    assert csv.read_bytes()[:2] == bytes.fromhex("1f8b"), (
+        "release csv is not gzip-compressed"
+    )
+    with gzip.open(csv, "rb") as fh:
+        read_back = pl.read_csv(fh)
     assert read_back.height == df.height
     assert read_back.width == df.width
 
