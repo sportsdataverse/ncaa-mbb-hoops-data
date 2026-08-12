@@ -9,6 +9,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from ncaa_mbb_data_build.config import REGISTRY
+from ncaa_mbb_data_build.io import CSV_SUFFIX
 from ncaa_mbb_data_build.publish import DEFAULT_REPO, publish_dataset
 
 _SPEC = REGISTRY["pbp"]
@@ -21,7 +22,7 @@ def _stage(tmp_path: Path) -> None:
 
     rel_dir = tmp_path / "mbb" / "_release_build" / "pbp"
     rel_dir.mkdir(parents=True)
-    (rel_dir / "ncaa_mbb_pbp_2026.csv").write_bytes(b"csv-bytes")
+    (rel_dir / f"ncaa_mbb_pbp_2026{CSV_SUFFIX}").write_bytes(b"csv-bytes")
     (rel_dir / "ncaa_mbb_pbp_2026.rds").write_bytes(b"rds-bytes")
 
 

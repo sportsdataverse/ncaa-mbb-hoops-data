@@ -17,6 +17,7 @@ from typing import Callable
 
 from ncaa_mbb_data_build._logging import get_logger, human_size
 from ncaa_mbb_data_build.config import DatasetSpec
+from ncaa_mbb_data_build.io import CSV_SUFFIX  # single source of the csv extension
 
 _LEAGUE = "mbb"
 
@@ -51,7 +52,7 @@ def _dataset_files(spec: DatasetSpec, season: int, base: Path) -> list[Path]:
     release_dir = base / _LEAGUE / "_release_build" / spec.dataset
     cands = [
         base / _LEAGUE / spec.dataset / "parquet" / f"{spec.stem}_{season}.parquet",
-        release_dir / f"{spec.stem}_{season}.csv",
+        release_dir / f"{spec.stem}_{season}{CSV_SUFFIX}",
         release_dir / f"{spec.stem}_{season}.rds",
     ]
     return [f for f in cands if f.exists()]
