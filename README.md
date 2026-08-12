@@ -118,12 +118,14 @@ silently missing asset).
   gitignored `mbb/_release_build/` and are re-derivable from the committed
   parquet -- they are never committed.
 - **The release csv is GZIPPED (`.csv.gz`), deliberately.** One season of `pbp`
-  is ~3.1M rows and writes a **2.03 GB** plain csv -- 99% of GitHub's 2 GiB
-  per-asset hard limit, so a season slightly longer than 2025-26 would fail to
-  upload outright. Gzip takes it to ~100 MB (21x). `espn_cfb_model_pbp` already
-  ships `.csv.gz` on the same release repo. Read one with
-  `pl.read_csv(gzip.open(path, "rb"))`, or `readr::read_csv()` in R (which
-  decompresses transparently).
+  is ~3.1M rows and writes a **2,126,337,961-byte** plain csv -- 99.0% of
+  GitHub's 2 GiB (2,147,483,648-byte) per-asset hard limit, so a season slightly
+  longer than 2025-26 would fail to upload outright. Gzipped it is
+  **99,701,928 bytes (~95 MiB)**, 21.3x smaller. (Byte counts rather than
+  rounded GB/MB: the limit being cleared is measured in bytes.)
+  `espn_cfb_model_pbp` already ships `.csv.gz` on the same release repo. Read
+  one with `pl.read_csv(gzip.open(path, "rb"))`, or `readr::read_csv()` in R,
+  which decompresses transparently.
 - **rds** requires R with the `arrow` package (`Rscript` shells out to
   `arrow::read_parquet` -> `saveRDS`). Resolution order: `SDV_RSCRIPT` env,
   then `RSCRIPT` env, then `Rscript` on `PATH`, then a scan of
