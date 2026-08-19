@@ -194,3 +194,41 @@ Wiring these datasets into sdv-py's `mbb_loaders` is a follow-up task, done
 *after* the first real publish. The loader introspects the live published
 parquet's footer schema, so it can't be generated until a real `ncaa_mbb_*`
 release exists on `sportsdataverse/sportsdataverse-data`.
+
+## Player name changes (`mbb/name_changes/`)
+
+stats.ncaa.org re-renders roster and box pages with a player's **current** name,
+while the play-by-play preserves the name **as it was at game time**. A player
+who changes their name therefore never matches between `possessions` and
+`team_rosters`, in any season, and no safe string rule bridges
+`KATELYNN.LIMARDO -> KATELYNN.MARTIN`.
+
+The `box_score` page binds both renderings to one numeric player id:
+
+```
+shot JS   addShot(..., '... player_768547579 team_201', ...)
+          "made by Miah Monahan(Eastern Ill.)"      <- game-time
+dropdown  <option value="768547579">Miah Meyer      <- current
+```
+
+`ops/build_name_changes.py` extracts that binding across the whole raw tree:
+
+```sh
+python ops/build_name_changes.py --league mbb
+```
+
+~3 minutes over 99,932 games -> 1,085 name-changes, written to
+`mbb/name_changes/parquet/ncaa_mbb_name_changes.parquet`
+(`season`, `team`, `name_game_time`, `name_current`, `n_games`).
+
+**Known gap: 2019+ only.** The binding is the shot-chart JS, and shot charts
+start in 2019 -- the same boundary that makes `shots` a 2019+ dataset. Earlier
+seasons still benefit where a career spans the boundary (WBB 2018 +2.06pp,
+2017 +0.72pp of fully-resolved possessions), but 2016 and older gain nothing.
+
+Only rows whose two **coded** names differ are emitted; comparing raw HTML
+strings yields false positives from entity/whitespace noise.
+
+**Not yet a published dataset** -- it is a committed artifact consumed by the
+sdv-py RAPM identity layer. Registering it in `config.REGISTRY` (and so on a
+release tag) is a separate decision.
