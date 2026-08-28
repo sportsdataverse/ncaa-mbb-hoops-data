@@ -344,3 +344,30 @@ women's oracle and publish via the explicit `UNGATED_SEASONS` allowlist
 publisher refuses any season whose manifest is missing, gate-failed, or
 inconsistent with the parquet (`check_run_manifest` + the league-gate
 record), and enforces a median gated-Spearman >= 0.95 across the publish set.
+
+## Automation & status
+
+<!-- BEGIN GENERATED: status -->
+
+| workflow | schedule | last run |
+|---|---|---|
+| [![orphan_scripts.yml](https://github.com/sportsdataverse/ncaa-mbb-hoops-data/actions/workflows/orphan_scripts.yml/badge.svg)](https://github.com/sportsdataverse/ncaa-mbb-hoops-data/actions/workflows/orphan_scripts.yml) | on push / PR / dispatch | 2026-08-28 |
+| [![tests.yml](https://github.com/sportsdataverse/ncaa-mbb-hoops-data/actions/workflows/tests.yml/badge.svg)](https://github.com/sportsdataverse/ncaa-mbb-hoops-data/actions/workflows/tests.yml) | on push / PR / dispatch | 2026-08-24 |
+
+| release tag | assets | size | last publish |
+|---|---:|---:|---|
+| [`ncaa_mbb_lineups`](https://github.com/sportsdataverse/sportsdataverse-data/releases/tag/ncaa_mbb_lineups) | 51 | 844.7 MB | 2026-08-20 |
+| [`ncaa_mbb_matchup_stints`](https://github.com/sportsdataverse/sportsdataverse-data/releases/tag/ncaa_mbb_matchup_stints) | 51 | 492.4 MB | 2026-08-20 |
+| [`ncaa_mbb_pbp`](https://github.com/sportsdataverse/sportsdataverse-data/releases/tag/ncaa_mbb_pbp) | 51 | 3,353.2 MB | 2026-08-12 |
+| [`ncaa_mbb_player_box`](https://github.com/sportsdataverse/sportsdataverse-data/releases/tag/ncaa_mbb_player_box) | 51 | 451.2 MB | 2026-08-12 |
+| [`ncaa_mbb_possessions`](https://github.com/sportsdataverse/sportsdataverse-data/releases/tag/ncaa_mbb_possessions) | 51 | 765.8 MB | 2026-08-12 |
+| [`ncaa_mbb_rapm`](https://github.com/sportsdataverse/sportsdataverse-data/releases/tag/ncaa_mbb_rapm) | 52 | 11.3 MB | 2026-08-24 |
+| [`ncaa_mbb_rapm_within_team`](https://github.com/sportsdataverse/sportsdataverse-data/releases/tag/ncaa_mbb_rapm_within_team) | 55 | 9.4 MB | 2026-08-24 |
+| [`ncaa_mbb_rosters`](https://github.com/sportsdataverse/sportsdataverse-data/releases/tag/ncaa_mbb_rosters) | 51 | 3.8 MB | 2026-08-12 |
+| [`ncaa_mbb_schedule`](https://github.com/sportsdataverse/sportsdataverse-data/releases/tag/ncaa_mbb_schedule) | 51 | 3.1 MB | 2026-08-12 |
+| [`ncaa_mbb_shots`](https://github.com/sportsdataverse/sportsdataverse-data/releases/tag/ncaa_mbb_shots) | 24 | 209.9 MB | 2026-08-20 |
+| [`ncaa_mbb_team_box`](https://github.com/sportsdataverse/sportsdataverse-data/releases/tag/ncaa_mbb_team_box) | 51 | 67.7 MB | 2026-08-12 |
+| [`ncaa_mbb_team_ids`](https://github.com/sportsdataverse/sportsdataverse-data/releases/tag/ncaa_mbb_team_ids) | 51 | 0.2 MB | 2026-08-12 |
+| [`ncaa_mbb_team_rosters`](https://github.com/sportsdataverse/sportsdataverse-data/releases/tag/ncaa_mbb_team_rosters) | 51 | 9.3 MB | 2026-08-12 |
+
+<!-- END GENERATED: status -->
