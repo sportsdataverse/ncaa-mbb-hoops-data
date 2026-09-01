@@ -39,8 +39,33 @@ annual post-season cron). Within-team stays manual by design (needs the raw
 HTML bundle checkout). Each run appends `models/ledger.jsonl`. Single home for
 the stage list: `models/manifest.yaml`.
 
+## Per-season results (real local sweep, 2026-09-01)
+
+| season | usable % | players | intercept | HCA | Torvik rho (n) |
+|---|---|---|---|---|---|
+| 2011 | 77.38 | 4482 | 100.24 | 2.805 | 0.9598 (332) |
+| 2012 | 79.90 | 4537 | 99.98 | 3.001 | 0.9706 (333) |
+| 2013 | 75.38 | 4542 | 99.24 | 2.934 | 0.9591 (334) |
+| 2014 | 77.14 | 4671 | 103.00 | 2.639 | 0.9584 (339) |
+| 2015 | 78.09 | 4649 | 100.85 | 2.822 | 0.9617 (339) |
+| 2016 | 75.07 | 4640 | 102.54 | 2.818 | 0.9587 (339) |
+| 2017 | 75.58 | 4630 | 102.45 | 2.505 | 0.9653 (338) |
+| 2018 | 74.14 | 4592 | 103.17 | 2.673 | 0.9509 (338) |
+| 2019 | 78.87 | 4688 | 102.30 | 2.539 | 0.9719 (338) |
+| 2020 | 83.05 | 4626 | 99.98 | 2.787 | 0.9711 (337) |
+| 2021 | 84.36 | 4896 | 100.88 | 2.019 | 0.9434 (335) |
+| 2022 | 86.70 | 4942 | 101.54 | 2.194 | 0.9770 (346) |
+| 2023 | 85.83 | 4942 | 102.61 | 2.736 | 0.9714 (350) |
+| 2024 | 84.87 | 4919 | 104.84 | 2.455 | 0.9725 (350) |
+| 2025 | 83.30 | 4960 | 105.67 | 2.691 | 0.9652 (353) |
+| 2026 | 89.84 | 4974 | 107.97 | 2.435 | 0.9783 (356) |
+
+Card: [`ncaa_mbb_rapm_card.json`](ncaa_mbb_rapm_card.json)
+
 ## Figures
 
-None committed yet — calibration / distribution figures are a recorded
-follow-up for the next full build (this doc carries the numeric results in
-the meantime).
+![RAPM distribution](figures/rapm_league_distribution_2026.png)
+
+![Gate metrics by season](figures/rapm_league_gates_by_season.png)
+
+![Team net vs Torvik](figures/rapm_vs_torvik_2026.png)
