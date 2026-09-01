@@ -102,6 +102,77 @@ order, not run order.
 
 [hoopR-kp-data repository (source: KenPom, dormant)](https://github.com/sportsdataverse/hoopR-kp-data)
 
+## Repository layout
+
+<!-- BEGIN GENERATED: layout -->
+
+```
+ncaa-mbb-hoops-data/
+├── docs/   # explainers, model reports and dataset docs
+│   └── models/
+├── logs/   # per-run logs (gitignored where large)
+├── mbb/
+│   ├── _release_build/
+│   ├── lineups/
+│   ├── matchup_stints/
+│   ├── name_changes/
+│   ├── pbp/
+│   ├── player_box/
+│   ├── possessions/
+│   ├── rosters/
+│   └── … 5 more
+├── models/   # model artifacts, cards and the registry
+├── ops/   # cron definitions and runbooks
+│   ├── oracle/
+│   ├── out_league/
+│   ├── build_name_changes.py
+│   ├── build_rapm.py
+│   ├── build_rapm_league.py
+│   ├── publish_rapm.py
+│   └── publish_rapm_league.py
+├── python/   # Python pipeline stages, numbered in build order
+│   ├── ncaa_mbb_data_build/
+│   ├── ncaa_mbb_hoops_data.egg-info/
+│   ├── ncaa_mbb_01_team_ids_creation.py
+│   ├── ncaa_mbb_02_schedule_creation.py
+│   ├── ncaa_mbb_03_team_rosters_creation.py
+│   ├── ncaa_mbb_04_rosters_creation.py
+│   ├── ncaa_mbb_05_pbp_creation.py
+│   ├── ncaa_mbb_06_player_box_creation.py
+│   ├── ncaa_mbb_07_team_box_creation.py
+│   ├── ncaa_mbb_08_lineups_creation.py
+│   ├── ncaa_mbb_09_matchup_stints_creation.py
+│   ├── ncaa_mbb_10_possessions_creation.py
+│   ├── ncaa_mbb_11_shots_creation.py
+│   ├── ncaa_mbb_99_schedule_master_creation.py
+│   ├── ncaa_mbb_model_01_rapm_league.py
+│   └── ncaa_mbb_model_02_rapm_within_team.py
+├── scripts/   # bash drivers (the daily/weekly entry points)
+│   ├── ncaa_mbb_models.sh
+│   ├── render_model_docs.sh
+│   ├── run_build.sh
+│   ├── run_historical_publish.sh
+│   └── run_publish.sh
+└── tests/   # test suite
+    ├── fixtures/
+    ├── test_build.py
+    ├── test_cli.py
+    ├── test_config.py
+    ├── test_derived.py
+    ├── test_e2e.py
+    ├── test_ingest.py
+    ├── test_io.py
+    ├── test_model_manifest.py
+    ├── test_model_registry.py
+    ├── test_publish.py
+    ├── test_rds.py
+    ├── test_reshapers.py
+    ├── test_schedule_master.py
+    └── test_stage_inventory.py
+```
+
+<!-- END GENERATED: layout -->
+
 ## Datasets
 
 Eleven datasets, keyed in `config.REGISTRY`. Six are DIRECT extracts of a
