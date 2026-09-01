@@ -477,3 +477,31 @@ record), and enforces a median gated-Spearman >= 0.95 across the publish set.
 | [`ncaa_mbb_team_rosters`](https://github.com/sportsdataverse/sportsdataverse-data/releases/tag/ncaa_mbb_team_rosters) | 51 | 9.3 MB | 2026-08-12 |
 
 <!-- END GENERATED: status -->
+
+## Consumers
+
+The packages that read what this repo produces:
+
+- **R:** [hoopR](https://hoopR.sportsdataverse.org) — docs at <https://hoopR.sportsdataverse.org>
+- **Python:** [`sportsdataverse (ncaa_mbb_*)`](https://github.com/sportsdataverse/sportsdataverse-py) — docs at <https://py.sportsdataverse.org>
+
+## Stage inventory
+
+Every numbered pipeline stage in `python/` (auto-listed; run subsets with the `scripts/*.sh` drivers by number or name):
+
+- `python/ncaa_mbb_01_team_ids_creation.py`
+- `python/ncaa_mbb_02_schedule_creation.py`
+- `python/ncaa_mbb_03_team_rosters_creation.py`
+- `python/ncaa_mbb_04_rosters_creation.py`
+- `python/ncaa_mbb_05_pbp_creation.py`
+- `python/ncaa_mbb_06_player_box_creation.py`
+- `python/ncaa_mbb_07_team_box_creation.py`
+- `python/ncaa_mbb_08_lineups_creation.py`
+- `python/ncaa_mbb_09_matchup_stints_creation.py`
+- `python/ncaa_mbb_10_possessions_creation.py`
+- `python/ncaa_mbb_11_shots_creation.py`
+- `python/ncaa_mbb_99_schedule_master_creation.py`
+- `python/ncaa_mbb_model_01_rapm_league.py`
+- `python/ncaa_mbb_model_02_rapm_within_team.py`
+
+Model release tags published from here: `ncaa_mbb_rapm`, `ncaa_mbb_rapm_within_team`
