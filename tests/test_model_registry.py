@@ -11,7 +11,7 @@ REGISTRY = ROOT / "models" / "REGISTRY.md"
 TAGS = ["ncaa_mbb_rapm", "ncaa_mbb_rapm_within_team"]
 #: gate tokens that must appear in the league-wide row (names, not values —
 #: values are frozen in ops/build_rapm_league.py's docstring, the authority).
-LEAGUE_GATE_TOKENS = ["usable-possession", "intercept era band", "Torvik", "0.93"]
+LEAGUE_GATE_TOKENS = ["usable-possession", "intercept era band", "Torvik", "0.93", "SE gate", "0.92, 0.98"]
 
 
 def _rows() -> list[str]:
