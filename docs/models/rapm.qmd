@@ -249,11 +249,11 @@ floors may only be raised):
 | usable-possession fraction | ≥ 0.65 | 2011+ min 0.7414 |
 | intercept era band (scale-bug catcher) | [95, 112] | 99.24–107.97 |
 | home-court advantage band | [1.0, 4.0] | in-band all seasons |
-| σ̂² era band (SE scale-bug catcher) | [11000, 15000] | 12,562–13,332 |
-| Spearman(possessions, rapm_net_se) | ≤ −0.80 | −0.965 to −0.898 |
-| top-decile median SE < bottom-decile median SE | strict | ratio 0.788–0.807 |
+| σ̂² era band (SE scale-bug catcher) | [11000, 15000] | 12,561.6–13,361.0 |
+| Spearman(possessions, rapm_net_se) | ≤ −0.80 | −0.930 to −0.861 |
+| top-decile median SE < bottom-decile median SE | strict | ratio 0.698–0.798 |
 | split-half coverage, posterior SE (rapm_net) | ≥ 0.95 | ≥ 0.9995 |
-| split-half coverage, sampling SE (O, D, net) | [0.92, 0.98] | 0.9465–0.9601 |
+| split-half coverage, sampling SE (O, D, net) | [0.92, 0.98] | 0.9509–0.9749 |
 | Torvik external (league-wide only) | ≥ 250 joined teams AND Spearman(team_net, adjem) ≥ 0.93 | min 0.9434 |
 
 ```{python}
@@ -415,7 +415,15 @@ is a tier, not a ranking.
   sdv-py #441 so that σ̂² means the same thing under either estimator. The
   published frame is cut back to season-*t* participants on season-*t* exposure
   by `season_slice`, with `tests/test_rapm_leakage_boundary.py` instrumenting
-  every input read of a real season to prove no season after *t* is touched.
+  every input read of a whole `run_season` on a real season to prove that no
+  *possession or box-score* input for a season after *t* is touched. The
+  cross-season **identity bridge is the one deliberate exception**: it is built
+  once from every roster season 2010–2026, so a `person_id` merge can in
+  principle be informed by a later roster or name change. That channel carries
+  identity only, never performance data, and `person_id` is already published
+  as an all-seasons crosswalk — but the guarantee is stated as scoped rather
+  than as absolute, and restricting the bridge to seasons ≤ *t* is recorded as
+  open.
 - **SPM-prior RAPM (2026-09-02) — measured, better on point estimates, NOT
   shipped, and blocked by a gate rather than by effort.** Shrinking toward a
   box-score plus/minus estimate instead of toward zero
