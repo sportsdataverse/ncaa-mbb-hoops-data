@@ -86,7 +86,7 @@ his lineups. The alternative, the frequentist sandwich covariance σ̂²·M(Xᵀ
 *repeatability of the shrunk estimate*: it collapses toward 0 for a player
 the ridge pins at zero, so it is not an interval for the truth — but it is
 exactly what a refit can check, and the producer computes it as the
-calibration instrument for the published SEs (see *Uncertainty* below).
+calibration instrument for the producer SEs (see *Uncertainty* below).
 The intercept is treated as fixed (its SE is ≈ 0.14 points per 100).
 
 **Feature engineering lives in the possession construction, not the
@@ -199,7 +199,7 @@ gt_show(
 )
 ```
 
-The published SE is validated on every season by a **split-half refit**:
+The producer SE is validated on every season by a **split-half refit**:
 the season's games are split by the parity of `contest_id` (deterministic
 and roster-neutral — the halves differ by sampling noise, not by the
 development or transfer drift a date split would add), both halves are
@@ -208,9 +208,9 @@ refit, and each player rated in both is checked for
 textbook calibration test and the coverage sits at the 0.954 nominal in
 every season — σ̂², the inverse and the O/D covariance are right.
 
-Under the published **posterior** SE the same test returns ≈ 1.0 coverage
+Under the producer **posterior** SE the same test returns ≈ 1.0 coverage
 with a standardised-difference SD of ≈ 0.38 rather than 1.0. Read that
-plainly: **the published SE is conservative by ≈ 2.5×** (≈ 2.3× for
+plainly: **the producer SE is conservative by ≈ 2.5×** (≈ 2.3× for
 1,000-plus-possession players) relative to how much the estimate actually
 moves between two halves of a season. That is not a defect — at λ = 1000
 the fit is prior-dominated, and a credible interval for the *true* impact
@@ -223,7 +223,7 @@ cautious band: if it excludes zero the player is separated from the prior
 by the data, and overlapping bands (as in the leaders table below) mean a
 tier, not a ranking. Do NOT read it as the season-to-season or half-to-half
 wobble of the number — that spread is ≈ 2.5× tighter, and a consumer
-propagating the published SE into a difference-of-two-players test will be
+propagating the producer SE into a difference-of-two-players test will be
 materially over-conservative.
 
 ```{python}
