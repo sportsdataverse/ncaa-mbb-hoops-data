@@ -13,6 +13,14 @@ writeup for the league-wide model, computed at render time from the
 local sweep outputs (`ops/out_league/`), the committed evaluation card,
 and the committed Torvik oracle fixture.
 
+**Release status.** The `ncaa_mbb_rapm` assets were last published on
+2026-08-24, before the producer gained the posterior standard errors (PR
+\#19) and the multi-season pooled estimator (PR \#22). They have 11
+columns (`season` … `estimand`) and **no** `orapm_se`, `drapm_se` or
+`rapm_net_se`. The SEs, intervals and pooled-estimator results below
+describe the current producer output in `ops/out_league/`; the release
+gains them at the next republish.
+
 **Model.** Ridge regression (λ = 1000) over the possession-level on/off
 design matrix: each row is a possession, each player an on/off column
 (+1 offense, −1 defense), plus intercept and home-court terms. Offensive
@@ -23,8 +31,8 @@ run time, because the λ no-op incident (a ridge that silently fit
 unregularized) is exactly the class of bug that survives rank-based
 checks.
 
-**Uncertainty.** Every published row carries `orapm_se`, `drapm_se` and
-`rapm_net_se` — the ridge **posterior** standard errors,
+**Uncertainty.** The producer writes `orapm_se`, `drapm_se` and
+`rapm_net_se` (not yet in the release; see *Release status*) — the ridge **posterior** standard errors,
 `sqrt(σ̂² · diag((XᵀWX + λI)⁻¹))`, with σ̂² the possession-weighted
 residual variance on n − df_eff degrees of freedom (df_eff = trace of
 the ridge hat matrix) and the net SE including the O/D posterior
@@ -36,7 +44,7 @@ sandwich covariance σ̂²·M(XᵀWX)M (its SEs are `sqrt` of the diagonal), is
 the *repeatability of the shrunk estimate*: it collapses toward 0 for a
 player the ridge pins at zero, so it is not an interval for the truth —
 but it is exactly what a refit can check, and the producer computes it
-as the calibration instrument for the published SEs (see *Uncertainty*
+as the calibration instrument for the producer SEs (see *Uncertainty*
 below). The intercept is treated as fixed (its SE is ≈ 0.14 points per
 100).
 
@@ -253,7 +261,7 @@ alt="Posterior SE vs possessions, latest season — the SE falls with playing ti
 
 &#10;</div>
 
-The published SE is validated on every season by a **split-half refit**:
+The producer SE is validated on every season by a **split-half refit**:
 the season’s games are split by the parity of `contest_id`
 (deterministic and roster-neutral — the halves differ by sampling noise,
 not by the development or transfer drift a date split would add), both
@@ -262,9 +270,9 @@ halves are refit, and each player rated in both is checked for \|β̂ₐ −
 textbook calibration test and the coverage sits at the 0.954 nominal in
 every season — σ̂², the inverse and the O/D covariance are right.
 
-Under the published **posterior** SE the same test returns ≈ 1.0
+Under the producer **posterior** SE the same test returns ≈ 1.0
 coverage with a standardised-difference SD of ≈ 0.38 rather than 1.0.
-Read that plainly: **the published SE is conservative by ≈ 2.5×** (≈
+Read that plainly: **the producer SE is conservative by ≈ 2.5×** (≈
 2.3× for 1,000-plus-possession players) relative to how much the
 estimate actually moves between two halves of a season. That is not a
 defect — at λ = 1000 the fit is prior-dominated, and a credible interval
@@ -278,7 +286,7 @@ cautious band: if it excludes zero the player is separated from the
 prior by the data, and overlapping bands (as in the leaders table below)
 mean a tier, not a ranking. Do NOT read it as the season-to-season or
 half-to-half wobble of the number — that spread is ≈ 2.5× tighter, and a
-consumer propagating the published SE into a difference-of-two-players
+consumer propagating the producer SE into a difference-of-two-players
 test will be materially over-conservative.
 
 <div id="nzykimwezw" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
@@ -695,37 +703,50 @@ entirely, so the table is a tier, not a ranking.
   other half of this item, informative priors instead of a flat ridge,
   is answered by the SPM-prior result below).
 - **Resolved (2026-09-01, PR \#19):** exact standard errors — the ridge
-  posterior SEs are published as `orapm_se` / `drapm_se` /
-  `rapm_net_se`, validated by a split-half calibration gate (sampling-SE
+  posterior SEs are written as `orapm_se` / `drapm_se` /
+  `rapm_net_se` (producer output; not yet in the release assets), validated by a split-half calibration gate (sampling-SE
   coverage at the 0.954 nominal in every season) and shown as ±2·SE
   intervals above. Finding worth keeping: at λ = 1000 the posterior SE
   is ≈2.3× the estimate’s repeatability even for 4,000-possession
   players — the prior, not the data, sets most of the interval.
 - **Within-team CI** — Path A still requires the raw HTML bundle
   checkout; a store-backed runner would let it join the wired retrain.
-- **Resolved (2026-09-02, PR \#21):** multi-year RAPM is built and
-  **measured**, and the premise this item was written on turned out to
-  be wrong. A decayed-weight stacked design (seasons *t−2…t* in one fit,
-  columns keyed by the cross-season `person_id`, season *s* weighted
-  `decay^(t−s)` with `decay = 0.5`, each season offset to *t*’s scoring
-  level) beats the single-season baseline on out-of-sample game-margin
-  MAE by **0.095 points per game** over 13,081 held-out games, better in
-  10/10 seasons, pooled game-cluster bootstrap 95% CI excluding zero.
-  Next-season Spearman for returning players rises 0.3115 → 0.3300.
-  **But the gain is NOT concentrated in the low-possession tail.** The
-  absolute Spearman gain is flat across playing time — +0.022 in the
-  \<100-possession bin and +0.022 in the 1500+ bin — so there is no
-  possession threshold above which it stops helping. It is a uniform
-  variance reduction, not a tail stabiliser. The *relative* gain is
-  largest in the tail only because the baseline is near zero there
-  (0.0261 → 0.0486 for \<200 possessions vs 0.3777 → 0.3984 for 1000+);
-  those are different claims and should not be conflated. **Not wired
-  into this producer yet, on purpose:** pooling changes what `σ̂²`
-  measures (weighted residual variance under decay weights — measured
-  7,733 vs the single-season 13,212 against a publish-blocking gate band
-  of \[11000, 15000\]), so the estimator flip needs its own re-derived
-  band plus a season-*t* filter on the published frame, and it
-  republishes 52 live assets.
+- **Resolved (2026-09-02, `feat/rapm-default-on`): multi-year RAPM is now the
+  producer default** for every season with a full 3-season window (2013 onward;
+  2011–2012 keep the flat ridge because 2010 fails the usable-possession gate).
+  A decayed-weight stacked design (seasons *t−2…t* in one fit, columns keyed by
+  the cross-season `person_id`, season *s* weighted `decay^(t−s)` with
+  `decay = 0.5`, each season offset to *t*'s scoring level) beats the
+  single-season baseline on out-of-sample game-margin MAE by **0.095 points per
+  game** over 13,081 held-out games, better in 10/10 seasons, pooled
+  game-cluster bootstrap 95% CI excluding zero. Next-season Spearman for
+  returning players rises 0.3115 → 0.3300, and the Torvik team-aggregate
+  Spearman improves on every pooled season.
+  **But the gain is NOT concentrated in the low-possession tail.** The absolute
+  Spearman gain is flat across playing time — +0.022 in the <100-possession bin
+  and +0.022 in the 1500+ bin — so there is no possession threshold above which
+  it stops helping. It is a uniform variance reduction, not a tail stabiliser.
+  The *relative* gain is largest in the tail only because the baseline is near
+  zero there (0.0261 → 0.0486 for <200 possessions vs 0.3777 → 0.3984 for 1000+); those are
+  different claims and should not be conflated.
+  The two blockers recorded on 2026-09-02 are settled rather than waived. The
+  σ̂² band was **re-derived from a 14-season sweep of the pooled estimator**
+  (observed 12,646.5 in 2014 … 13,361.0 in 2026 → [11000, 15000] by the same
+  ±12.5%-and-round-outward rule that reproduces the flat band exactly from its
+  own extremes) — and the 7,733 that looked like a blocker was an artifact of
+  dividing a weight-deflated residual sum by an undeflated row count, fixed in
+  sdv-py #441 so that σ̂² means the same thing under either estimator. The
+  published frame is cut back to season-*t* participants on season-*t* exposure
+  by `season_slice`, with `tests/test_rapm_leakage_boundary.py` instrumenting
+  every input read of a whole `run_season` on a real season to prove that no
+  *possession or box-score* input for a season after *t* is touched. The
+  cross-season **identity bridge is the one deliberate exception**: it is built
+  once from every roster season 2010–2026, so a `person_id` merge can in
+  principle be informed by a later roster or name change. That channel carries
+  identity only, never performance data, and `person_id` is already published
+  as an all-seasons crosswalk — but the guarantee is stated as scoped rather
+  than as absolute, and restricting the bridge to seasons ≤ *t* is recorded as
+  open.
 - **SPM-prior RAPM (2026-09-02, PR \#21) — measured, engine support
   shipped, not yet the producer default.** Shrinking toward a box-score
   plus/minus estimate instead of toward zero
