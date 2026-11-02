@@ -56,6 +56,14 @@ writeup for the league-wide model, computed at render time from the local
 sweep outputs (`ops/out_league/`), the committed evaluation card, and the
 committed Torvik oracle fixture.
 
+**Release status.** The `ncaa_mbb_rapm` assets were last published on
+2026-08-24, before the producer gained the posterior standard errors (PR #19)
+and the multi-season pooled estimator (PR #22). They have 11 columns
+(`season` … `estimand`) and **no** `orapm_se`, `drapm_se` or `rapm_net_se`.
+The SEs, intervals and pooled-estimator results below describe the current
+producer output in `ops/out_league/`; the release gains them at the next
+republish.
+
 **Model.** Ridge regression (λ = 1000) over the possession-level on/off
 design matrix: each row is a possession, each player an on/off column (+1
 offense, −1 defense), plus intercept and home-court terms. Offensive and
@@ -65,8 +73,8 @@ validation program — and the fitted value is *asserted* at run time, because
 the λ no-op incident (a ridge that silently fit unregularized) is exactly
 the class of bug that survives rank-based checks.
 
-**Uncertainty.** Every published row carries `orapm_se`, `drapm_se` and
-`rapm_net_se` — the ridge **posterior** standard errors,
+**Uncertainty.** The producer writes `orapm_se`, `drapm_se` and
+`rapm_net_se` (not yet in the release; see *Release status*) — the ridge **posterior** standard errors,
 `sqrt(σ̂² · diag((XᵀWX + λI)⁻¹))`, with σ̂² the possession-weighted residual
 variance on n − df_eff degrees of freedom (df_eff = trace of the ridge hat
 matrix) and the net SE including the O/D posterior covariance. Under the
@@ -380,7 +388,8 @@ is a tier, not a ranking.
   half of this item, informative priors instead of a flat ridge, is answered by
   the SPM-prior result below).
 - **Resolved (2026-09-01, PR #19):** exact standard errors — the ridge
-  posterior SEs are published as `orapm_se` / `drapm_se` / `rapm_net_se`,
+  posterior SEs are written as `orapm_se` / `drapm_se` / `rapm_net_se`
+  (producer output; not yet in the release assets),
   validated by a split-half calibration gate (sampling-SE coverage at the
   0.954 nominal in every season) and shown as ±2·SE intervals above. Finding
   worth keeping: at λ = 1000 the posterior SE is ≈2.3× the estimate's

@@ -511,8 +511,10 @@ publisher refuses any season whose manifest is missing, gate-failed, or
 inconsistent with the parquet (`check_run_manifest` + the league-gate
 record), and enforces a median gated-Spearman >= 0.95 across the publish set.
 
-Since 2026-09-01 every row also carries `orapm_se` / `drapm_se` / `rapm_net_se`,
-the ridge-POSTERIOR standard errors (additive columns; the coefficients are
+Since 2026-09-01 the producer also writes `orapm_se` / `drapm_se` / `rapm_net_se`
+(not yet in the release: the `ncaa_mbb_rapm` assets were last published
+2026-08-24 and have no `*_se` columns), the ridge-POSTERIOR standard errors
+(additive columns; the coefficients are
 unchanged). Gate 5 checks them on every season: `sigma2` era band, SE falls
 with playing time (Spearman(possessions, `rapm_net_se`) <= -0.80 AND the
 top-possession-decile median `rapm_net_se` strictly below the
