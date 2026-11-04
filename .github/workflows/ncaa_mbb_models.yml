@@ -19,6 +19,11 @@ on:
         description: 'Single season end-year (e.g. 2026); empty = --all (2011-2026)'
         required: false
         default: ''
+      dry_run:
+        description: 'Smoke test: one season (the season input, else 2026) instead of --all; nothing is published either way'
+        required: false
+        type: boolean
+        default: false
   schedule:
     # 06:00 UTC 20 April — post-tournament, season settled. Annual.
     - cron: '0 6 20 4 *'
@@ -68,9 +73,11 @@ jobs:
         env:
           # env-passed, never ${{ }}-inline in the script body
           SEASON: ${{ inputs.season }}
+          DRY_RUN: ${{ inputs.dry_run }}
         run: |
           ARGS="--all"
           if [ -n "${SEASON}" ]; then ARGS="--season ${SEASON}"; fi
+          if [ "${DRY_RUN}" = "true" ]; then ARGS="--season ${SEASON:-2026}"; fi
           uv run --no-sync python python/ncaa_mbb_model_01_rapm_league.py ${ARGS}
 
       - name: Upload built seasons + ledger (publish stays manual)
