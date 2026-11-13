@@ -4,8 +4,9 @@ Python producer that reshapes [`ncaa-mbb-hoops-raw`](https://github.com/sportsda
 parsed `stats.ncaa.org` men's basketball JSON into season-level tidy datasets.
 The upstream source is `stats.ncaa.org` (via the bigballR port in sdv-py) --
 **not** ESPN; NCAA contest ids are strings, not ESPN ints. Sister repo to the
-wehoop (WNBA) and hoopR (NBA/WBB) data producers -- same build -> publish
-shape, different sport/league.
+wehoop (WNBA/WBB) and hoopR (NBA/MBB) data producers -- same build -> publish
+shape, different sport/league; the women's twin is
+[`ncaa-wbb-hoops-data`](https://github.com/sportsdataverse/ncaa-wbb-hoops-data).
 
 ## ncaa-mbb-hoops workflow diagram
 
@@ -354,12 +355,43 @@ directory and asserts each parquet is written, non-empty, schema-stable
 across the write/read round-trip, and holds the dtype-discipline contract
 (`contest_id`/`id` as Utf8, `season` as Int64).
 
-## sdv-py loader wiring (deferred)
+## Load it
 
-Wiring these datasets into sdv-py's `mbb_loaders` is a follow-up task, done
-*after* the first real publish. The loader introspects the live published
-parquet's footer schema, so it can't be generated until a real `ncaa_mbb_*`
-release exists on `sportsdataverse/sportsdataverse-data`.
+Every dataset has an R loader in hoopR and a Python loader in sportsdataverse-py
+(`sportsdataverse.mbb`); each reads the dataset's `ncaa_mbb_<dataset>` release tag on
+`sportsdataverse/sportsdataverse-data`. The RAPM model tags have their own loaders
+(`load_ncaa_mbb_rapm()`, `load_ncaa_mbb_rapm_within_team()`).
+
+| dataset | R | Python |
+| --- | --- | --- |
+| `team_ids` | `hoopR::load_ncaa_mbb_team_ids()` | `sportsdataverse.mbb.load_ncaa_mbb_team_ids()` |
+| `schedule` | `hoopR::load_ncaa_mbb_schedule()` | `sportsdataverse.mbb.load_ncaa_mbb_schedule()` |
+| `team_rosters` | `hoopR::load_ncaa_mbb_team_rosters()` | `sportsdataverse.mbb.load_ncaa_mbb_team_rosters()` |
+| `rosters` | `hoopR::load_ncaa_mbb_rosters()` | `sportsdataverse.mbb.load_ncaa_mbb_rosters()` |
+| `pbp` | `hoopR::load_ncaa_mbb_pbp()` | `sportsdataverse.mbb.load_ncaa_mbb_pbp()` |
+| `player_box` | `hoopR::load_ncaa_mbb_player_box()` | `sportsdataverse.mbb.load_ncaa_mbb_player_box()` |
+| `team_box` | `hoopR::load_ncaa_mbb_team_box()` | `sportsdataverse.mbb.load_ncaa_mbb_team_box()` |
+| `lineups` | `hoopR::load_ncaa_mbb_lineups()` | `sportsdataverse.mbb.load_ncaa_mbb_lineups()` |
+| `matchup_stints` | `hoopR::load_ncaa_mbb_matchup_stints()` | `sportsdataverse.mbb.load_ncaa_mbb_matchup_stints()` |
+| `possessions` | `hoopR::load_ncaa_mbb_possessions()` | `sportsdataverse.mbb.load_ncaa_mbb_possessions()` |
+| `shots` | `hoopR::load_ncaa_mbb_shots()` | `sportsdataverse.mbb.load_ncaa_mbb_shots()` |
+
+## Join keys
+
+Ids from stats.ncaa.org are stored as **strings** here and are a different id space
+from ESPN's: casting one does not turn it into an ESPN id. To join to the ESPN datasets
+in [`hoopR-mbb-data`](https://github.com/sportsdataverse/hoopR-mbb-data), use the `espn_*`
+bridge columns below (`espn_game_id`, `*_espn_team_id`, `shots.espn_team_id`). Those are
+strings here and integers in `hoopR-mbb-data`, so cast the bridge column before joining.
+
+| column | joins to |
+| --- | --- |
+| `contest_id` | stats.ncaa.org game id. `schedule` has one row per game; every per-game dataset keys on it. |
+| `player_id`, `player_1_id` / `player_2_id`, `home_N_player_id` / `away_N_player_id`, `shots.shooter_player_id` | stats.ncaa.org player id; joins `team_rosters.player_id`. `team_rosters` has one row per player per team per season, and stats.ncaa.org issues new player and team ids every season (no 2025 id recurs in 2026), so these join only within the same season. |
+| `*_ncaa_team_id`, `shots.ncaa_team_id` | stats.ncaa.org team id; joins `team_rosters.team_id`. Season-specific, like `player_id`. |
+| `lineup_key`, `matchup_stints.home_lineup_key` / `away_lineup_key` | joins `lineups.lineup_key`. The key names a team's five-player unit, not a game or stint: `lineups` has one row per unit per stint (unique on `contest_id` + `team` + `stint_num`), so a key recurs across games (up to 36 in 2025) and within a game (up to 14 stints). A join on `lineup_key` alone, or on `contest_id` + `lineup_key`, multiplies rows; aggregate `lineups` to the grain you need first. |
+| `espn_game_id` | ESPN game id; joins `game_id` in `hoopR-mbb-data` (`schedules`, `pbp`, `team_box`, ...). |
+| `*_espn_team_id`, `shots.espn_team_id` | ESPN team id; joins `team_id` in `hoopR-mbb-data`. |
 
 ## Player name changes (`mbb/name_changes/`)
 
